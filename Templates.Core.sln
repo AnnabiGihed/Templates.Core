@@ -31,6 +31,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Identity", "Identity", "{63
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Templates.Core.Configuration", "Src\Identity\Templates.Core.Configuration\Templates.Core.Configuration.csproj", "{E23F2153-150D-4451-A0D7-3D5112FEA1AC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Templates.Identity.Client", "Src\Identity\Templates.Identity.Client\Templates.Identity.Client.csproj", "{092E7BC8-3CB6-4A0C-95D4-1348F387A805}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -73,6 +75,10 @@ Global
 		{E23F2153-150D-4451-A0D7-3D5112FEA1AC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E23F2153-150D-4451-A0D7-3D5112FEA1AC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E23F2153-150D-4451-A0D7-3D5112FEA1AC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{092E7BC8-3CB6-4A0C-95D4-1348F387A805}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{092E7BC8-3CB6-4A0C-95D4-1348F387A805}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{092E7BC8-3CB6-4A0C-95D4-1348F387A805}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{092E7BC8-3CB6-4A0C-95D4-1348F387A805}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -91,5 +97,6 @@ Global
 		{9BF2402E-E1C7-4C1B-9A90-1E32BAFA7C7F} = {C65D1B17-7D31-4FB1-94A1-2BDF4160C5A8}
 		{63C9D841-8772-4C34-877E-04EF4424AE60} = {C65D1B17-7D31-4FB1-94A1-2BDF4160C5A8}
 		{E23F2153-150D-4451-A0D7-3D5112FEA1AC} = {63C9D841-8772-4C34-877E-04EF4424AE60}
+		{092E7BC8-3CB6-4A0C-95D4-1348F387A805} = {63C9D841-8772-4C34-877E-04EF4424AE60}
 	EndGlobalSection
 EndGlobal
