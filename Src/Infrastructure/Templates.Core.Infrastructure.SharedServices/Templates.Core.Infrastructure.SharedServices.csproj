@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <PackageOutputPath>D:\Work\Personal Project\Template.Core\Nugets</PackageOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
