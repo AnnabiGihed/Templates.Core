@@ -7,7 +7,6 @@ public class TokenProvider
 	public string AccessToken { get; set; }
 	public string RefreshToken { get; set; }
 	public DateTimeOffset ExpiresAt { get; set; }
-
 }
 
 /// <summary>
@@ -22,6 +21,4 @@ public class InitialApplicationState
 	public string AccessToken { get; set; }
 	public string RefreshToken { get; set; }
 	public DateTimeOffset ExpiresAt { get; set; }
-
-
 }
