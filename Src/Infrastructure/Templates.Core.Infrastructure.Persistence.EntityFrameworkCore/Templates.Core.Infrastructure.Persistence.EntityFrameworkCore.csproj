@@ -5,7 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <PackageOutputPath>D:\Work\Personal Project\Template.Core\Nugets</PackageOutputPath>
+    <Version>1.0.0</Version>
+    <Authors>Annabi Gihed</Authors>
+    <Description>Templates.Core.Infrastructure.Persistence.EntityFramework.core</Description>
+    <RepositoryUrl>https://github.com/AnnabiGihed/Templates.Core</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
