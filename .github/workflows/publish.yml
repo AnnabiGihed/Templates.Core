@@ -37,5 +37,5 @@ jobs:
           echo "Publishing package: $nupkg"
           dotnet nuget push "$nupkg" \
             --source github \
-            --api-key ${{ secrets.GITHUB_PAT }}
+            --api-key ${{ secrets.TEMPLATES_SECRET }}
         done
