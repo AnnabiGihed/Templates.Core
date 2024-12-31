@@ -1,4 +1,4 @@
-name: Publish NuGet Package
+name: Publish NuGet Packages
 
 on:
   push:
@@ -18,8 +18,28 @@ jobs:
       with:
         dotnet-version: '8.x' # Update as needed (e.g., '7.x' or 'latest')
 
+    - name: Extract tag version
+      id: extract_version
+      run: |
+        # Remove the "v" prefix from the tag (e.g., v1.0.0 -> 1.0.0)
+        TAG_VERSION=${GITHUB_REF#refs/tags/v}
+        echo "Tag version: $TAG_VERSION"
+        echo "version=$TAG_VERSION" >> $GITHUB_ENV
+
+    - name: Update project versions
+      run: |
+        # Find all .csproj files and update the Version property
+        for csproj in $(find . -name "*.csproj"); do
+          echo "Updating version for: $csproj"
+          sed -i "s|<Version>.*</Version>|<Version>${{ env.version }}</Version>|" "$csproj"
+        done
+
     - name: Authenticate to GitHub Packages
-      run: dotnet nuget add source "https://nuget.pkg.github.com/AnnabiGihed/index.json" --name "github" --username "AnnabiGihed" --password ${{ secrets.TEMPLATES_SECRET }} --store-password-in-clear-text
+      run: dotnet nuget add source "https://nuget.pkg.github.com/AnnabiGihed/index.json" \
+          --name "github" \
+          --username "AnnabiGihed" \
+          --password ${{ secrets.TEMPLATES_SECRET }} \
+          --store-password-in-clear-text
 
     - name: Build and pack all projects
       run: |
