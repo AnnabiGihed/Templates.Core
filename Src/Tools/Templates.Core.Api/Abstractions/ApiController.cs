@@ -2,17 +2,19 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Templates.Core.Domain.Shared;
+using Templates.Core.Tools.API.Conventions;
 using Templates.Core.Application.Exceptions;
+
 
 namespace Templates.Core.Tools.API.Abstractions;
 
 [ApiController]
+[ApiConventionType(typeof(ApiConventions))]
 public abstract class ApiController : ControllerBase
 {
 	protected readonly ISender Sender;
 
 	protected ApiController(ISender sender) => Sender = sender;
-
 
 	#region -Option 1 : HandleFailure
 
@@ -24,18 +26,17 @@ public abstract class ApiController : ControllerBase
 				HandleBadRequestFailure(result);
 	}
 
-
 	private ActionResult HandleNotFoundFailure(Result result) =>
-	   result switch
-	   {
-		   { IsSuccess: true } => throw new InvalidOperationException(),
-		   _ =>
-			   NotFound(
-				   CreateProblemDetails(
-					   "Not Found",
-					   StatusCodes.Status400BadRequest,
-					   result.Error))
-	   };
+		result switch
+		{
+			{ IsSuccess: true } => throw new InvalidOperationException(),
+			_ =>
+				NotFound(
+					CreateProblemDetails(
+						"Not Found",
+						StatusCodes.Status404NotFound,
+						result.Error))
+		};
 
 	private ActionResult HandleBadRequestFailure(Result result) =>
 		result switch
@@ -55,7 +56,6 @@ public abstract class ApiController : ControllerBase
 						result.Error))
 		};
 
-
 	private static ProblemDetails CreateProblemDetails(
 		string title,
 		int status,
@@ -72,7 +72,6 @@ public abstract class ApiController : ControllerBase
 
 	#endregion -Option 1 : HandleFailure
 
-
 	#region -Option 2 : HandleGlobalFailure
 
 	protected ActionResult HandleGlobalFailure(Result result)
@@ -83,15 +82,13 @@ public abstract class ApiController : ControllerBase
 				HandleGlobalBadRequestFailure(result);
 	}
 
-
 	private ActionResult HandleGlobalNotFoundFailure(Result result) =>
-	   result switch
-	   {
-		   { IsSuccess: true } => throw new InvalidOperationException(),
-		   _ =>
-			   throw new NotFoundException(result.Error.Code, result.Error.Message)
-	   };
-
+		result switch
+		{
+			{ IsSuccess: true } => throw new InvalidOperationException(),
+			_ =>
+				throw new NotFoundException(result.Error.Code, result.Error.Message)
+		};
 
 	private ActionResult HandleGlobalBadRequestFailure(Result result) =>
 		result switch
@@ -104,4 +101,17 @@ public abstract class ApiController : ControllerBase
 		};
 
 	#endregion -Option 2 : HandleGlobalFailure
+
+	#region -Option 3 : HandleResult
+
+	protected ActionResult HandleResult<T>(Result<T> result)
+	{
+		if (result.IsFailure)
+		{
+			return HandleFailure(result);
+		}
+		return Ok(result);
+	}
+
+	#endregion -Option 3 : HandleResult
 }
