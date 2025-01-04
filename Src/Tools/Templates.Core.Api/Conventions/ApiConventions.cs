@@ -1,43 +1,74 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Templates.Core.Domain.Shared;
-using System.Linq.Dynamic.Core;
+using Microsoft.AspNetCore.Mvc.ApiExplorer;
 
 namespace Templates.Core.Tools.API.Conventions;
 
 public static class ApiConventions
 {
-	// Default for Result<T>
-	[ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Result<>))]
+	/// <summary>
+	/// Convention for actions returning Task&lt;ActionResult&lt;Result&lt;T&gt;&gt;&gt;.
+	/// </summary>
+	/// <typeparam name="T">The type of the result.</typeparam>
+	[ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Result<object>))]
 	[ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ProblemDetails))]
 	[ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ProblemDetails))]
-	public static void DefaultResult<T>() { }
+	[ApiConventionNameMatch(ApiConventionNameMatchBehavior.Prefix)]
+	public static void Retrive(
+		[ApiConventionTypeMatch(ApiConventionTypeMatchBehavior.Any)] params object[] parameters
+	)
+	{ }
 
-	// Default for non-Result<T> generic responses
-	[ProducesResponseType(StatusCodes.Status200OK)]
+	/// <summary>
+	/// Convention for actions returning Task&lt;ActionResult&lt;Result&lt;T&gt;&gt;&gt;.
+	/// </summary>
+	/// <typeparam name="T">The type of the result.</typeparam>
+	[ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Result<object>))]
 	[ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ProblemDetails))]
 	[ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ProblemDetails))]
-	public static void Default<T>() { }
+	[ApiConventionNameMatch(ApiConventionNameMatchBehavior.Prefix)]
+	public static void Get(
+		[ApiConventionTypeMatch(ApiConventionTypeMatchBehavior.Any)] params object[] parameters
+	)
+	{ }
 
-	// Non-generic actions (e.g., void/Task/IActionResult)
+	/// <summary>
+	/// Convention for actions returning Task&lt;ActionResult&lt;Result&lt;T&gt;&gt;&gt; for PUT requests.
+	/// </summary>
+	/// <typeparam name="T">The type of the result.</typeparam>
+	[ProducesResponseType(StatusCodes.Status200OK, Type = typeof(Result<object>))]
+	[ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ProblemDetails))]
+	[ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ProblemDetails))]
+	[ApiConventionNameMatch(ApiConventionNameMatchBehavior.Prefix)]
+	public static void Update(
+		[ApiConventionTypeMatch(ApiConventionTypeMatchBehavior.Any)] params object[] parameters
+	)
+	{ }
+
+	/// <summary>
+	/// Convention for actions returning no content (204).
+	/// </summary>
 	[ProducesResponseType(StatusCodes.Status204NoContent)]
 	[ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ProblemDetails))]
 	[ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ProblemDetails))]
-	public static void Delete() { }
+	[ApiConventionNameMatch(ApiConventionNameMatchBehavior.Prefix)]
+	public static void Delete(
+		[ApiConventionTypeMatch(ApiConventionTypeMatchBehavior.Any)] params object[] parameters
+	)
+	{ }
 
-	// Create actions (e.g., POST that returns Created)
-	[ProducesResponseType(StatusCodes.Status201Created)]
-	[ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ProblemDetails))]
-	public static void Create<T>() { }
-
-	// Paged results or custom response types
-	[ProducesResponseType(StatusCodes.Status200OK, Type = typeof(PagedResult<>))]
+	/// <summary>
+	/// Convention for POST actions returning Task&lt;ActionResult&lt;Result&lt;T&gt;&gt;&gt;.
+	/// </summary>
+	/// <typeparam name="T">The type of the result.</typeparam>
+	[ProducesResponseType(StatusCodes.Status201Created, Type = typeof(Result<object>))] // Use object as a generic placeholder
 	[ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ProblemDetails))]
 	[ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ProblemDetails))]
-	public static void PagedResult<T>() { }
-
-	// Actions with only 200 and 400 responses
-	[ProducesResponseType(StatusCodes.Status200OK)]
-	[ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ProblemDetails))]
-	public static void DefaultResultNoNotFound<T>() { }
+	[ApiConventionNameMatch(ApiConventionNameMatchBehavior.Prefix)] // Matches method names starting with "Add" or "Post"
+	public static void Add(
+		[ApiConventionTypeMatch(ApiConventionTypeMatchBehavior.Any)] params object[] parameters
+	)
+	{
+	}
 }
