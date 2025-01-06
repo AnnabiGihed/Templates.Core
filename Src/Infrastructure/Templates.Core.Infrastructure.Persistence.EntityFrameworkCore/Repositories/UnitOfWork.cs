@@ -50,7 +50,7 @@ public abstract class UnitOfWork<TId> : IUnitOfWork<TId>
 	/// an Aggregate to OutboxMessages and stores them to the
 	/// OutboxMessage table in dbContext of the application.
 	/// </summary>
-	private void ConvertDomainEventsToOutboxMessages()
+	protected void ConvertDomainEventsToOutboxMessages()
 	{
 		var outboxMessages = _dbContext.ChangeTracker
 			.Entries<IAggregateRoot>()
@@ -85,7 +85,7 @@ public abstract class UnitOfWork<TId> : IUnitOfWork<TId>
 	/// IAuditableEntities should be instantiated in the constructor of the objects
 	/// CurrentUser is from Httpcontext and if it comes from a domain event or null set it to the default "System".
 	/// </summary>
-	private void UpdateAuditableEntities()
+	protected void UpdateAuditableEntities()
 	{
 		foreach (var entityEntry in _dbContext.ChangeTracker.Entries<IAuditableEntity>())
 		{
