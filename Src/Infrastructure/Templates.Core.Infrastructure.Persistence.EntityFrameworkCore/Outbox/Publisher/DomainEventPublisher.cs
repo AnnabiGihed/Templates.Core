@@ -15,11 +15,16 @@ public class DomainEventPublisher : IDomainEventPublisher
 
 	public async Task PublishAsync(IDomainEvent domainEvent, CancellationToken cancellationToken)
 	{
+		var serializedObject = JsonConvert.SerializeObject(domainEvent, new JsonSerializerSettings
+		{
+			ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+		});
+
 		var outboxMessage = new OutboxMessage
 		{
 			Id = domainEvent.Id,
 			EventType = domainEvent.GetType().FullName,
-			Payload = JsonConvert.SerializeObject(domainEvent),
+			Payload = serializedObject,
 			CreatedAtUtc = domainEvent.OccurredOnUtc
 		};
 
