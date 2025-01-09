@@ -5,25 +5,25 @@ using Newtonsoft.Json;
 using RabbitMQ.Client.Events;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Templates.Core.Infrastructure.Abstraction.MessageBrokers.RabbitMQ.Models;
 using Templates.Core.Infrastructure.Abstraction.MessageBrokers.Shared.MessageReceiver;
 using Templates.Core.Infrastructure.Abstraction.MessageBrokers.Shared.MessageEncryptor;
 using Templates.Core.Infrastructure.Abstraction.MessageBrokers.Shared.MessageCompressor;
-using Templates.Core.Infrastructure.Abstraction.Outbox.Models;
 
 namespace Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.MessageBrokers.Shared.MessageReceiver;
 
-public class RabbitMQReceiver(IOptions<RabbitMQSettings> options, ILogger<RabbitMQReceiver> logger,	IMessageCompressor messageCompressor,	IMessageEncryptor messageEncryptor,	IMediator mediator) : IMessageReceiver
+public class RabbitMQReceiver(IOptions<RabbitMQSettings> options, ILogger<RabbitMQReceiver> logger,	IMessageCompressor messageCompressor,	IMessageEncryptor messageEncryptor,	IMediator mediator, IServiceProvider serviceProvider) : IMessageReceiver
 {
 	#region Properties
 	protected IChannel? _channel;
 	protected IConnection? _connection;
 	protected readonly IMediator _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
-	protected readonly RabbitMQSettings _settings = options.Value ?? throw new ArgumentNullException(nameof(options));
 	protected readonly ILogger<RabbitMQReceiver> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+	protected readonly RabbitMQSettings _settings = options.Value ?? throw new ArgumentNullException(nameof(options));
+	protected readonly IServiceProvider _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
 	protected readonly IMessageEncryptor _messageEncryptor = messageEncryptor ?? throw new ArgumentNullException(nameof(messageEncryptor));
 	protected readonly IMessageCompressor _messageCompressor = messageCompressor ?? throw new ArgumentNullException(nameof(messageCompressor));
-
 	#endregion
 
 	#region IMessageReceiver Implementation
@@ -56,6 +56,9 @@ public class RabbitMQReceiver(IOptions<RabbitMQSettings> options, ILogger<Rabbit
 		{
 			try
 			{
+				using var scope = _serviceProvider.CreateScope(); // Create a scope for resolving scoped services
+				var scopedMediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+
 				var encryptedMessage = ea.Body.ToArray();
 				var compressedMessage = _messageEncryptor.Decrypt(encryptedMessage);
 				var messageBytes = _messageCompressor.Decompress(compressedMessage);
@@ -83,7 +86,7 @@ public class RabbitMQReceiver(IOptions<RabbitMQSettings> options, ILogger<Rabbit
 				}
 
 				// Use Mediator to handle the domain event
-				await _mediator.Publish(notificationEvent);
+				await scopedMediator.Publish(notificationEvent);
 
 				// Acknowledge the message
 				await _channel.BasicAckAsync(ea.DeliveryTag, multiple: false);
