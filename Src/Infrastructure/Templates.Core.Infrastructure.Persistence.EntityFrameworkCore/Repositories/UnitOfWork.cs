@@ -6,7 +6,6 @@ using Microsoft.EntityFrameworkCore;
 using Templates.Core.Domain.Primitives;
 using Templates.Core.Domain.Repositories;
 using Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Outbox.Publisher;
-using Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Outbox.Repositories;
 
 namespace Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Repositories;
 
@@ -14,16 +13,14 @@ public abstract class UnitOfWork<TId> : IUnitOfWork<TId>
 {
 	#region Properties
 	protected readonly DbContext _dbContext;
-	protected readonly IOutboxRepository _outboxRepository;
 	protected readonly IHttpContextAccessor _httpContextAccessor;
 	protected readonly IDomainEventPublisher _domainEventPublisher;
 	#endregion
 
 	#region Constructors
-	public UnitOfWork(DbContext dbContext, IHttpContextAccessor httpContextAccessor, IDomainEventPublisher domainEventPublisher, IOutboxRepository outboxRepository)
+	public UnitOfWork(DbContext dbContext, IHttpContextAccessor httpContextAccessor, IDomainEventPublisher domainEventPublisher)
 	{
 		_dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
-		_outboxRepository = outboxRepository ?? throw new ArgumentNullException(nameof(outboxRepository));
 		_httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
 		_domainEventPublisher = domainEventPublisher ?? throw new ArgumentNullException(nameof(domainEventPublisher));
 	}

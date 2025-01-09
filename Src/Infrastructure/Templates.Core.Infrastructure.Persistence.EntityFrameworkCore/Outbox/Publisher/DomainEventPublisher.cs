@@ -1,15 +1,16 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using System.Diagnostics;
 using Templates.Core.Domain.Primitives;
 using Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Outbox.Repositories;
 
 namespace Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Outbox.Publisher;
 
-public class DomainEventPublisher : IDomainEventPublisher
+public class DomainEventPublisher<TContext> : IDomainEventPublisher where TContext : DbContext
 {
-	private readonly IOutboxRepository _outboxRepository;
+	private readonly IOutboxRepository<TContext> _outboxRepository;
 
-	public DomainEventPublisher(IOutboxRepository outboxRepository)
+	public DomainEventPublisher(IOutboxRepository<TContext> outboxRepository)
 	{
 		_outboxRepository = outboxRepository;
 	}
@@ -25,7 +26,6 @@ public class DomainEventPublisher : IDomainEventPublisher
 				ReferenceLoopHandling = ReferenceLoopHandling.Ignore
 			});
 
-			Debug.WriteLine($"Publishing domain event: {domainEvent.GetType().FullName}");
 			var outboxMessage = new OutboxMessage
 			{
 				Id = domainEvent.Id,

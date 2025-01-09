@@ -1,9 +1,7 @@
 ﻿using Polly;
 using Microsoft.Extensions.Options;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.Outbox.Services;
 using Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.Outbox.Repositories;
 using Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Outbox.Repositories;
 using Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.RabbitMQ.MessageReceiver;
@@ -41,7 +39,7 @@ public static class RabbitMQPublisherExtensions
 		services.AddSingleton<IMessagePublisher, RabbitMQPublisher>();
 		services.AddSingleton<IMessageReceiver, RabbitMQReceiver>();
 
-		services.AddScoped(typeof(IOutboxRepository), typeof(OutboxRepository<>));
+		services.AddScoped(typeof(IOutboxRepository<>), typeof(OutboxRepository<>));
 
 
 		//services.AddHostedService<OutboxPublisherService>();
