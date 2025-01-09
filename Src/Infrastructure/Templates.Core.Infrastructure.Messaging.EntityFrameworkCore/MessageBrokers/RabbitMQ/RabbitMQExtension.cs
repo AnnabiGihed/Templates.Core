@@ -16,8 +16,6 @@ using Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.MessageBrokers
 using Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.MessageBrokers.Shared.MessageEncryptor;
 using Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.MessageBrokers.Shared.MessageSerializer;
 using Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.MessageBrokers.Shared.MessageCompressor;
-using Templates.Core.Domain.Repositories;
-using Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.UnitOfWork;
 
 namespace Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.MessageBrokers.RabbitMQ;
 public static class RabbitMQPublisherExtensions
@@ -53,7 +51,6 @@ public static class RabbitMQPublisherExtensions
 		#endregion
 
 		services.AddScoped(typeof(IOutboxRepository<>), typeof(OutboxRepository<>));
-		services.AddScoped(typeof(IUnitOfWork<>), typeof(UnitOfWork<>));
 		return services;
 	}
 }
