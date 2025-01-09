@@ -1,8 +1,11 @@
 ﻿using Polly;
 using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.Outbox.Services;
+using Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.Outbox.Repositories;
+using Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Outbox.Repositories;
 using Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.RabbitMQ.MessageReceiver;
 using Temlates.Core.Infrastructure.Messaging.EntityFrameworkCore.RabbitMQ.MessageCompressor;
 using Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.RabbitMQ.MessageEncryptor;
@@ -12,7 +15,7 @@ using Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.RabbitMQ.Messa
 namespace Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.RabbitMQ;
 public static class RabbitMQPublisherExtensions
 {
-	public static IServiceCollection AddRabbitMQPublisher(this IServiceCollection services, IConfiguration configuration)
+	public static IServiceCollection AddRabbitMQPublisher(this IServiceCollection services, IConfiguration configuration, DbContext dbContext)
 	{
 		services.Configure<RabbitMQSettings>(options => configuration.GetSection("RabbitMQ").Bind(options));
 
@@ -38,9 +41,13 @@ public static class RabbitMQPublisherExtensions
 		services.AddSingleton<IMessagePublisher, RabbitMQPublisher>();
 		services.AddSingleton<IMessageReceiver, RabbitMQReceiver>();
 
+		services.AddScoped<IOutboxRepository, OutboxRepository>(sp =>
+		{
+			return new OutboxRepository(dbContext);
+		});
+
 		services.AddHostedService<OutboxPublisherService>();
 
 		return services;
 	}
-
 }
