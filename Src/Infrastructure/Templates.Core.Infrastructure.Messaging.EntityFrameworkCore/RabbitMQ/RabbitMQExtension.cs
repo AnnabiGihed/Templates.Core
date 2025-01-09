@@ -41,11 +41,8 @@ public static class RabbitMQPublisherExtensions
 		services.AddSingleton<IMessagePublisher, RabbitMQPublisher>();
 		services.AddSingleton<IMessageReceiver, RabbitMQReceiver>();
 
-		services.AddScoped<IOutboxRepository, OutboxRepository>(sp =>
-		{
-			var dbContext = sp.GetRequiredService<DbContext>();
-			return new OutboxRepository(dbContext);
-		});
+		services.AddScoped(typeof(IOutboxRepository), typeof(OutboxRepository<>));
+
 
 		//services.AddHostedService<OutboxPublisherService>();
 

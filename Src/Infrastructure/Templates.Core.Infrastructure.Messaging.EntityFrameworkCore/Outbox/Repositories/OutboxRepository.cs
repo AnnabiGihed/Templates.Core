@@ -4,11 +4,11 @@ using Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Outbox.Repos
 
 namespace Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.Outbox.Repositories;
 
-public class OutboxRepository : IOutboxRepository
+public class OutboxRepository<TContext> : IOutboxRepository where TContext : DbContext
 {
-	private readonly DbContext _dbContext;
+	private readonly TContext _dbContext;
 
-	public OutboxRepository(DbContext dbContext)
+	public OutboxRepository(TContext dbContext)
 	{
 		_dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
 	}
