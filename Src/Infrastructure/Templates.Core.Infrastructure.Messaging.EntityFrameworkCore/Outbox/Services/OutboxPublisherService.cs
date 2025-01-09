@@ -13,7 +13,8 @@ public class OutboxPublisherService : BackgroundService
 
 	public OutboxPublisherService(IServiceProvider serviceProvider, ILogger<OutboxPublisherService> logger)
 	{
-		_logger = logger;
+		_logger = logger ?? throw new ArgumentNullException(nameof(logger));
+		_serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
 	}
 
 	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
