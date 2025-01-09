@@ -25,7 +25,9 @@ public class DomainEventPublisher<TContext> : IDomainEventPublisher where TConte
 
 			var serializedObject = JsonConvert.SerializeObject(domainEvent, new JsonSerializerSettings
 			{
-				ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+				ReferenceLoopHandling = ReferenceLoopHandling.Ignore, // Prevents circular references
+				Formatting = Formatting.None, // Compact JSON
+				StringEscapeHandling = StringEscapeHandling.Default // Avoids unnecessary escaping
 			});
 
 			var outboxMessage = new OutboxMessage
