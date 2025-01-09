@@ -127,7 +127,7 @@ public abstract class UnitOfWork<TContext>(DbContext dbContext, IHttpContextAcce
 
 			foreach (var message in messages)
 			{
-				var result = await _messagePublisher.PublishAsync(message.Payload);
+				var result = await _messagePublisher.PublishAsync(message);
 				result = await _outboxRepository.MarkAsProcessedAsync(message.Id, cancellationToken);		
 			}
 

@@ -1,16 +1,16 @@
-﻿using Polly.Retry;
+﻿using System.Text;
+using Polly.Retry;
 using RabbitMQ.Client;
 using Polly.CircuitBreaker;
 using Microsoft.Extensions.Options;
 using Templates.Core.Domain.Shared;
 using System.Collections.Concurrent;
+using Templates.Core.Infrastructure.Abstraction.Outbox.Models;
 using Templates.Core.Infrastructure.Abstraction.MessageBrokers.RabbitMQ.Models;
 using Templates.Core.Infrastructure.Abstraction.MessageBrokers.Shared.MessagePublisher;
 using Templates.Core.Infrastructure.Abstraction.MessageBrokers.Shared.MessageEncryptor;
 using Templates.Core.Infrastructure.Abstraction.MessageBrokers.Shared.MessageCompressor;
 using Templates.Core.Infrastructure.Abstraction.MessageBrokers.Shared.MessageSerializer;
-using System.Diagnostics;
-using System.Text;
 
 namespace Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.MessageBrokers.Shared.MessagePublisher;
 
@@ -31,7 +31,7 @@ public class RabbitMQPublisher(IOptions<RabbitMQSettings> options, IMessageSeria
 	#endregion
 
 	#region IMessagePublisher Implementation
-	public async Task<Result> PublishAsync<T>(T message)
+	public async Task<Result> PublishAsync(OutboxMessage message)
 	{
 		if (message == null)
 			return Result.Failure(new Error("MessageNull", "Message cannot be null."));
@@ -53,8 +53,7 @@ public class RabbitMQPublisher(IOptions<RabbitMQSettings> options, IMessageSeria
 
 					//var serializedMessage = _serializer.Serialize(message);
 
-					var serializedMessage = message as string ?? throw new InvalidOperationException("Message must be a serialized string.");
-					var compressedMessage = _compressor.Compress(Encoding.UTF8.GetBytes(serializedMessage));
+					var compressedMessage = _compressor.Compress(Encoding.UTF8.GetBytes(message?.Payload));
 					var encryptedMessage = _encryptor.Encrypt(compressedMessage);
 
 					var properties = new BasicProperties
@@ -66,7 +65,7 @@ public class RabbitMQPublisher(IOptions<RabbitMQSettings> options, IMessageSeria
 							{ "CorrelationId", Guid.NewGuid().ToString() },
 							{ "Timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }
 						},
-						Type = typeof(T).AssemblyQualifiedName // Set the fully qualified type name
+						Type = message.EventType // Set the fully qualified type name
 					};
 
 					await channel.BasicPublishAsync(

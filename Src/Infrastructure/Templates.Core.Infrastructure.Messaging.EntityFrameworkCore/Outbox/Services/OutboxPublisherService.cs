@@ -30,7 +30,7 @@ public class OutboxPublisherService<TContext>(IServiceProvider serviceProvider, 
 				{
 					try
 					{
-						await messagePublisher.PublishAsync(message.Payload);
+						await messagePublisher.PublishAsync(message);
 						await outboxRepository.MarkAsProcessedAsync(message.Id, stoppingToken);
 						_logger.LogInformation($"Message {message.Id} published successfully.");
 					}
