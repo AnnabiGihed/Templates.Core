@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using Newtonsoft.Json;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Templates.Core.Domain.Shared;
@@ -8,7 +7,6 @@ using Templates.Core.Domain.Primitives;
 using Templates.Core.Domain.Repositories;
 using Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Outbox.Publisher;
 using Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Outbox.Repositories;
-
 
 namespace Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Repositories;
 
@@ -43,9 +41,9 @@ public abstract class UnitOfWork<TId> : IUnitOfWork<TId>
 			var result = await _dbContext.SaveChangesAsync(cancellationToken);
 
 			if(result > 0)			
-				await PublishOutboxMessagesAsync(cancellationToken);
-
-			return Result.Success();
+				return Result.Success();
+			else 
+				return Result.Failure(new Error("SaveChangesError", "No changes were saved."));
 		}
 		catch (DbUpdateConcurrencyException concurrencyEx)
 		{
@@ -67,32 +65,6 @@ public abstract class UnitOfWork<TId> : IUnitOfWork<TId>
 	#endregion
 
 	#region Utilities
-	private async Task SaveDomainEventsAsync(CancellationToken cancellationToken)
-	{
-		// Get all aggregate roots with domain events
-		var aggregatesWithEvents = _dbContext.ChangeTracker
-			.Entries<IAggregateRoot>()
-			.Where(e => e.Entity.GetDomainEvents().Any())
-			.Select(e => e.Entity)
-			.ToList();
-
-		foreach (var aggregate in aggregatesWithEvents)
-		{
-			// Save each domain event to the outbox
-			foreach (var domainEvent in aggregate.GetDomainEvents())
-			{
-				await _domainEventPublisher.PublishAsync(domainEvent, cancellationToken);
-			}
-
-			// Clear domain events from the aggregate
-			aggregate.ClearDomainEvents();
-		}
-	}
-	/// <summary>
-	/// This methods will set the audit props on add and update of every table in dbcontext
-	/// IAuditableEntities should be instantiated in the constructor of the objects
-	/// CurrentUser is from Httpcontext and if it comes from a domain event or null set it to the default "System".
-	/// </summary>
 	protected void UpdateAuditableEntities()
 	{
 		foreach (var entityEntry in _dbContext.ChangeTracker.Entries<IAuditableEntity>())
@@ -117,10 +89,6 @@ public abstract class UnitOfWork<TId> : IUnitOfWork<TId>
 			}
 		}
 	}
-
-	/// <summary>
-	/// Logs exception details.
-	/// </summary>
 	protected void LogException(Exception ex)
 	{
 		StringBuilder sb = new StringBuilder();
@@ -131,41 +99,26 @@ public abstract class UnitOfWork<TId> : IUnitOfWork<TId>
 		}
 		Debug.WriteLine(sb.ToString());
 	}
-
-	protected async Task PublishOutboxMessagesAsync(CancellationToken cancellationToken)
+	protected async Task SaveDomainEventsAsync(CancellationToken cancellationToken)
 	{
-		var messages = await _outboxRepository.GetUnprocessedMessagesAsync(cancellationToken);
+		// Get all aggregate roots with domain events
+		var aggregatesWithEvents = _dbContext.ChangeTracker
+			.Entries<IAggregateRoot>()
+			.Where(e => e.Entity.GetDomainEvents().Any())
+			.Select(e => e.Entity)
+			.ToList();
 
-		foreach (var message in messages)
+		foreach (var aggregate in aggregatesWithEvents)
 		{
-			// Deserialize the payload back into its original domain event type
-			var domainEventType = Type.GetType(message.EventType);
-			Debug.WriteLine($"Domain Event Type: {domainEventType}");
-			Debug.WriteLine($"Payload: {message.Payload}");
-			Debug.WriteLine($"Message Id: {message.Id}");
-			Debug.WriteLine($"Message Processed: {message.Processed}");
-
-			if (domainEventType == null)
+			// Save each domain event to the outbox
+			foreach (var domainEvent in aggregate.GetDomainEvents())
 			{
-				// Handle error: Event type not found
-				throw new InvalidOperationException($"Event type '{message.EventType}' could not be found.");
+				await _domainEventPublisher.PublishAsync(domainEvent, cancellationToken);
 			}
 
-			var domainEvent = JsonConvert.DeserializeObject(message.Payload, domainEventType) as IDomainEvent;
-			if (domainEvent == null)
-			{
-				// Handle error: Deserialization failed
-				throw new InvalidOperationException($"Failed to deserialize payload for event type '{message.EventType}'.");
-			}
-
-			// Pass the deserialized domain event to the DomainEventPublisher
-			await _domainEventPublisher.PublishAsync(domainEvent, cancellationToken);
-
-			// Mark the outbox message as processed
-			await _outboxRepository.MarkAsProcessedAsync(message.Id, cancellationToken);
+			// Clear domain events from the aggregate
+			aggregate.ClearDomainEvents();
 		}
 	}
-
-
 	#endregion
 }

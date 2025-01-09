@@ -39,8 +39,6 @@ public class OutboxPublisherService : BackgroundService
 					_logger.LogError(ex, $"Error publishing message {message.Id}");
 				}
 			}
-
-			await Task.Delay(5000, stoppingToken); // Delay for polling
 		}
 	}
 }
