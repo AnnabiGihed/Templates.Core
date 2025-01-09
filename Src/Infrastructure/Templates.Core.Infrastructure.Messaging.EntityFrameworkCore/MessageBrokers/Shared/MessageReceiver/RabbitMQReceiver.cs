@@ -9,6 +9,7 @@ using Templates.Core.Infrastructure.Abstraction.MessageBrokers.RabbitMQ.Models;
 using Templates.Core.Infrastructure.Abstraction.MessageBrokers.Shared.MessageReceiver;
 using Templates.Core.Infrastructure.Abstraction.MessageBrokers.Shared.MessageEncryptor;
 using Templates.Core.Infrastructure.Abstraction.MessageBrokers.Shared.MessageCompressor;
+using Templates.Core.Infrastructure.Abstraction.Outbox.Models;
 
 namespace Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.MessageBrokers.Shared.MessageReceiver;
 
@@ -64,6 +65,8 @@ public class RabbitMQReceiver(IOptions<RabbitMQSettings> options, ILogger<Rabbit
 
 				// Deserialize the payload into the appropriate domain event
 				var domainEventType = Type.GetType(ea.BasicProperties.Type);
+				_logger.LogWarning($"Retrived Domain Event Type: {ea.BasicProperties.Type}");
+
 				if (domainEventType == null)
 				{
 					_logger.LogWarning($"Unknown event type: {ea.BasicProperties.Type}");
@@ -71,16 +74,16 @@ public class RabbitMQReceiver(IOptions<RabbitMQSettings> options, ILogger<Rabbit
 					return;
 				}
 
-				var domainEvent = JsonConvert.DeserializeObject(messagePayload, domainEventType) as INotification;
-				if (domainEvent == null)
+				var domainEvent = JsonConvert.DeserializeObject(messagePayload, domainEventType);
+				if (domainEvent is not INotification notificationEvent)
 				{
-					_logger.LogWarning($"Failed to deserialize message to event type: {ea.BasicProperties.Type}");
+					_logger.LogWarning($"Deserialized object is not an INotification: {ea.BasicProperties.Type}");
 					await _channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: true);
 					return;
 				}
 
 				// Use Mediator to handle the domain event
-				await _mediator.Publish(domainEvent);
+				await _mediator.Publish(notificationEvent);
 
 				// Acknowledge the message
 				await _channel.BasicAckAsync(ea.DeliveryTag, multiple: false);
