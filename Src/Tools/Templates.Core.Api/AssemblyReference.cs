@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 
-namespace Templates.Core.Tools.API;
+namespace Templates.Core.Containers.API;
 
 public static class AssemblyReference
 {

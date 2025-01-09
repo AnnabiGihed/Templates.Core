@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Templates.Core.Infrastructure.Abstraction.Transaction;
 
 namespace Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Transaction;
 

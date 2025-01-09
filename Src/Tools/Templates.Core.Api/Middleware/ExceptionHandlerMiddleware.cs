@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Templates.Core.Application.Exceptions;
 
-namespace Templates.Core.Tools.API.Middleware;
+namespace Templates.Core.Containers.API.Middleware;
 
 public class ExceptionHandlerMiddleware
 {

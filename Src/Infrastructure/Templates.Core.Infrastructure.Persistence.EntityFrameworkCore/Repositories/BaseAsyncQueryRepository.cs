@@ -1,7 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Templates.Core.Domain.Primitives;
 using Templates.Core.Domain.Repositories;
-using Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Specifications;
 
 namespace Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Repositories;
 
@@ -71,13 +70,5 @@ public class BaseAsyncQueryRepository<TProjection, TId> : IAsyncQueryRepository<
 	{
 		TProjection? t = await _dbContext.Set<TProjection>().FindAsync(new object[] { id }, cancellationToken);
 		return t != null;
-	}
-
-	protected IQueryable<TProjection> ApplySpecification(
-	ProjectionSpecification<TProjection, TId> specification)
-	{
-		return ProjectionSpecificationEvaluator<TId>.GetQuery(
-			_dbContext.Set<TProjection>(),
-			specification);
 	}
 }

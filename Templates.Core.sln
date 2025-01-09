@@ -11,21 +11,21 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Templates.Core.Application"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Templates.Core.Domain", "Src\Core\Templates.Core.Domain\Templates.Core.Domain.csproj", "{1F3F99CA-2105-43CE-9499-AF235D3F9D9D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Templates.Core.Domain.SharedServices", "Src\Core\Templates.Core.Domain.SharedServices\Templates.Core.Domain.SharedServices.csproj", "{30F3930A-C5CC-43B7-A7DA-20F2E9D42EFB}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Infrastructure", "Infrastructure", "{5C522C01-4562-46F5-AE0B-C0931006F43A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Templates.Core.Infrastructure.Messaging.EntityFrameworkCore", "Src\Infrastructure\Templates.Core.Infrastructure.Messaging.EntityFrameworkCore\Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.csproj", "{595A6646-72B4-4B06-BA77-89149CDF9FD2}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Templates.Core.Infrastructure.Persistence.EntityFrameworkCore", "Src\Infrastructure\Templates.Core.Infrastructure.Persistence.EntityFrameworkCore\Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.csproj", "{777DAB55-C375-4B19-BBD8-4C55FC78F37C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Templates.Core.Infrastructure.SharedServices", "Src\Infrastructure\Templates.Core.Infrastructure.SharedServices\Templates.Core.Infrastructure.SharedServices.csproj", "{DF2B125E-1087-4283-85A4-A90D32FEBD50}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Templates.Core.Tools.DependencyInjection", "Src\Tools\Templates.Core.Tools.DependencyInjection\Templates.Core.Tools.DependencyInjection.csproj", "{C2AA757B-8A8F-45E0-B44C-EA7D92BD1EA4}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{9BF2402E-E1C7-4C1B-9A90-1E32BAFA7C7F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Templates.Core.Tools.API", "Src\Tools\Templates.Core.Api\Templates.Core.Tools.API.csproj", "{90CC15D2-B266-40B6-8395-420BE395D231}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Templates.Core.Containers.API", "Src\Tools\Templates.Core.Api\Templates.Core.Containers.API.csproj", "{90CC15D2-B266-40B6-8395-420BE395D231}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Containers", "Containers", "{3B691C3F-2184-4B9E-8B47-650C04203BD6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Templates.Core.Infrastructure.Abstraction", "Src\Infrastructure\Templates.Core.Infrastructure.Abstraction\Templates.Core.Infrastructure.Abstraction.csproj", "{BAFCEC8B-10F0-4133-B59C-3B02BC9D9FA9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -41,10 +41,6 @@ Global
 		{1F3F99CA-2105-43CE-9499-AF235D3F9D9D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1F3F99CA-2105-43CE-9499-AF235D3F9D9D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1F3F99CA-2105-43CE-9499-AF235D3F9D9D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{30F3930A-C5CC-43B7-A7DA-20F2E9D42EFB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{30F3930A-C5CC-43B7-A7DA-20F2E9D42EFB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{30F3930A-C5CC-43B7-A7DA-20F2E9D42EFB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{30F3930A-C5CC-43B7-A7DA-20F2E9D42EFB}.Release|Any CPU.Build.0 = Release|Any CPU
 		{595A6646-72B4-4B06-BA77-89149CDF9FD2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{595A6646-72B4-4B06-BA77-89149CDF9FD2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{595A6646-72B4-4B06-BA77-89149CDF9FD2}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -53,10 +49,6 @@ Global
 		{777DAB55-C375-4B19-BBD8-4C55FC78F37C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{777DAB55-C375-4B19-BBD8-4C55FC78F37C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{777DAB55-C375-4B19-BBD8-4C55FC78F37C}.Release|Any CPU.Build.0 = Release|Any CPU
-		{DF2B125E-1087-4283-85A4-A90D32FEBD50}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DF2B125E-1087-4283-85A4-A90D32FEBD50}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DF2B125E-1087-4283-85A4-A90D32FEBD50}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DF2B125E-1087-4283-85A4-A90D32FEBD50}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C2AA757B-8A8F-45E0-B44C-EA7D92BD1EA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C2AA757B-8A8F-45E0-B44C-EA7D92BD1EA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C2AA757B-8A8F-45E0-B44C-EA7D92BD1EA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -65,6 +57,10 @@ Global
 		{90CC15D2-B266-40B6-8395-420BE395D231}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{90CC15D2-B266-40B6-8395-420BE395D231}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{90CC15D2-B266-40B6-8395-420BE395D231}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BAFCEC8B-10F0-4133-B59C-3B02BC9D9FA9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BAFCEC8B-10F0-4133-B59C-3B02BC9D9FA9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BAFCEC8B-10F0-4133-B59C-3B02BC9D9FA9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BAFCEC8B-10F0-4133-B59C-3B02BC9D9FA9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -73,13 +69,13 @@ Global
 		{A997222C-7999-495C-8F24-E6E774E47FAB} = {C65D1B17-7D31-4FB1-94A1-2BDF4160C5A8}
 		{B6F9C879-4A4B-4510-B94C-2DE169188968} = {A997222C-7999-495C-8F24-E6E774E47FAB}
 		{1F3F99CA-2105-43CE-9499-AF235D3F9D9D} = {A997222C-7999-495C-8F24-E6E774E47FAB}
-		{30F3930A-C5CC-43B7-A7DA-20F2E9D42EFB} = {5C522C01-4562-46F5-AE0B-C0931006F43A}
 		{5C522C01-4562-46F5-AE0B-C0931006F43A} = {C65D1B17-7D31-4FB1-94A1-2BDF4160C5A8}
 		{595A6646-72B4-4B06-BA77-89149CDF9FD2} = {5C522C01-4562-46F5-AE0B-C0931006F43A}
 		{777DAB55-C375-4B19-BBD8-4C55FC78F37C} = {5C522C01-4562-46F5-AE0B-C0931006F43A}
-		{DF2B125E-1087-4283-85A4-A90D32FEBD50} = {5C522C01-4562-46F5-AE0B-C0931006F43A}
 		{C2AA757B-8A8F-45E0-B44C-EA7D92BD1EA4} = {9BF2402E-E1C7-4C1B-9A90-1E32BAFA7C7F}
 		{9BF2402E-E1C7-4C1B-9A90-1E32BAFA7C7F} = {C65D1B17-7D31-4FB1-94A1-2BDF4160C5A8}
-		{90CC15D2-B266-40B6-8395-420BE395D231} = {9BF2402E-E1C7-4C1B-9A90-1E32BAFA7C7F}
+		{90CC15D2-B266-40B6-8395-420BE395D231} = {3B691C3F-2184-4B9E-8B47-650C04203BD6}
+		{3B691C3F-2184-4B9E-8B47-650C04203BD6} = {C65D1B17-7D31-4FB1-94A1-2BDF4160C5A8}
+		{BAFCEC8B-10F0-4133-B59C-3B02BC9D9FA9} = {5C522C01-4562-46F5-AE0B-C0931006F43A}
 	EndGlobalSection
 EndGlobal

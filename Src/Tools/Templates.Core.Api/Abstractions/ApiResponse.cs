@@ -1,4 +1,4 @@
-﻿namespace Templates.Core.Tools.API.Abstractions;
+﻿namespace Templates.Core.Containers.API.Abstractions;
 
 public class ApiResponse<T>
 {

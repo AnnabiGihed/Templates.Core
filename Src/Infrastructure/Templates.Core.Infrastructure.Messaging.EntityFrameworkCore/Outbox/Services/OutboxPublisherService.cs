@@ -2,22 +2,19 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Outbox.Repositories;
-using Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.RabbitMQ.MessagePublisher;
+using Templates.Core.Infrastructure.Abstraction.Outbox.Repositories;
+using Templates.Core.Infrastructure.Abstraction.MessageBrokers.Shared.MessagePublisher;
 
 namespace Templates.Core.Infrastructure.Messaging.EntityFrameworkCore.Outbox.Services;
 
-public class OutboxPublisherService<TContext> : BackgroundService where TContext : DbContext
+public class OutboxPublisherService<TContext>(IServiceProvider serviceProvider, ILogger<OutboxPublisherService<TContext>> logger) : BackgroundService where TContext : DbContext
 {
-	protected readonly IServiceProvider _serviceProvider;
-	protected readonly ILogger<OutboxPublisherService<TContext>> _logger;
+	#region Properties
+	protected readonly IServiceProvider _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+	protected readonly ILogger<OutboxPublisherService<TContext>> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+	#endregion
 
-	public OutboxPublisherService(IServiceProvider serviceProvider, ILogger<OutboxPublisherService<TContext>> logger)
-	{
-		_logger = logger ?? throw new ArgumentNullException(nameof(logger));
-		_serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-	}
-
+	#region BackgroundService Overrides
 	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 	{
 		while (!stoppingToken.IsCancellationRequested)
@@ -47,4 +44,5 @@ public class OutboxPublisherService<TContext> : BackgroundService where TContext
 			}
 		}
 	}
+	#endregion
 }

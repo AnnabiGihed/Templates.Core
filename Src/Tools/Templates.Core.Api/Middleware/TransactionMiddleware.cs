@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Templates.Core.Tools.API.Middleware;
+namespace Templates.Core.Containers.API.Middleware;
 
 public class TransactionMiddleware<TContext> where TContext : DbContext
 {

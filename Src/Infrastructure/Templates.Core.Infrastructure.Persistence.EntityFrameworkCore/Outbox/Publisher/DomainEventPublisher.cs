@@ -2,7 +2,9 @@
 using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Templates.Core.Domain.Primitives;
-using Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Outbox.Repositories;
+using Templates.Core.Infrastructure.Abstraction.Outbox.Models;
+using Templates.Core.Infrastructure.Abstraction.Outbox.Repositories;
+using Templates.Core.Infrastructure.Abstraction.Outbox.DomainEventPublisher;
 
 namespace Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Outbox.Publisher;
 

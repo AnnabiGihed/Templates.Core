@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Templates.Core.Domain.Shared;
 using Templates.Core.Application.Exceptions;
 
-namespace Templates.Core.Tools.API.Abstractions;
+namespace Templates.Core.Containers.API.Abstractions;
 
 [ApiController]
 public abstract class ApiController : ControllerBase
