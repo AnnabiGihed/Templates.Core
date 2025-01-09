@@ -56,10 +56,10 @@ public class RabbitMQReceiver(IOptions<RabbitMQSettings> options, ILogger<Rabbit
 			try
 			{
 				var encryptedMessage = ea.Body.ToArray();
-				var compressedMessage = _messageEncryptor.Decrypt(encryptedMessage);
-				var messageBytes = _messageCompressor.Decompress(compressedMessage);
+				//var compressedMessage = _messageEncryptor.Decrypt(encryptedMessage);
+				//var messageBytes = _messageCompressor.Decompress(compressedMessage);
 
-				var messagePayload = Encoding.UTF8.GetString(messageBytes);
+				var messagePayload = Encoding.UTF8.GetString(encryptedMessage);
 
 				_logger.LogInformation($"Message received: {messagePayload}");
 

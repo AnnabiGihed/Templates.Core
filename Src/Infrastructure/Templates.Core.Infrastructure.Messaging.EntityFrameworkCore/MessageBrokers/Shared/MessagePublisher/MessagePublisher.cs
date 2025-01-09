@@ -50,10 +50,9 @@ public class RabbitMQPublisher(IOptions<RabbitMQSettings> options, IMessageSeria
 					using var connection = await CreateConnectionAsync();
 					using var channel = await connection.CreateChannelAsync();
 
-					Debug.WriteLine($"Domain event type: {message}");
 					var serializedMessage = _serializer.Serialize(message);
-					var compressedMessage = _compressor.Compress(serializedMessage);
-					var encryptedMessage = _encryptor.Encrypt(compressedMessage);
+					//var compressedMessage = _compressor.Compress(serializedMessage);
+					//var encryptedMessage = _encryptor.Encrypt(compressedMessage);
 
 					var properties = new BasicProperties
 					{
@@ -72,7 +71,7 @@ public class RabbitMQPublisher(IOptions<RabbitMQSettings> options, IMessageSeria
 						_settings.RoutingKey,
 						mandatory: true,
 						properties,
-						encryptedMessage);
+						serializedMessage);
 
 					return Result.Success();
 				});
