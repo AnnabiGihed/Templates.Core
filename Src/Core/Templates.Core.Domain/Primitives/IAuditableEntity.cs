@@ -1,7 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
-using Microsoft.VisualBasic;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using System.ComponentModel.DataAnnotations.Schema;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Templates.Core.Domain.Primitives;
 
@@ -14,12 +14,19 @@ public interface IAuditableEntity
 [ComplexType]
 public class AuditInfo : ValueObject<AuditInfo>
 {
-	public string? CreatedBy { get; set; } = default!;
-	public string? ModifiedBy { get; set; } = default!;
-	public DateTime CreatedOnUtc { get; set; }
-	public DateTime? ModifiedOnUtc { get; set; } = default!;
+	#region Properties
+	public DateTime CreatedOnUtc { get; protected set; }
+	public string? CreatedBy { get; protected set; } = default!;
+	public string? ModifiedBy { get; protected set; } = default!;
+	public DateTime? ModifiedOnUtc { get; protected set; } = default!;
+	#endregion
 
-	// Add a public constructor for deserialization
+	#region Constructors
+	private AuditInfo()
+	{
+		
+	}
+
 	[JsonConstructor]
 	public AuditInfo(string createdBy, string modifiedBy, DateTime createdOnUtc, DateTime modifiedOnUtc)
 	{
@@ -28,6 +35,8 @@ public class AuditInfo : ValueObject<AuditInfo>
 		CreatedOnUtc = createdOnUtc;
 		ModifiedOnUtc = modifiedOnUtc;
 	}
+	#endregion
+
 	public static AuditInfo Create(DateTime date, string author)
 	{
 
@@ -51,6 +60,26 @@ public class AuditInfo : ValueObject<AuditInfo>
 
 		ModifiedBy = author;
 		ModifiedOnUtc = date;
+	}
+
+	public void Update(string createdBy, string modifiedBy, DateTime createdOnUtc, DateTime modifiedOnUtc)
+	{
+		if (createdOnUtc == DateTime.MaxValue || createdOnUtc == DateTime.MinValue)
+			throw new ArgumentException(nameof(createdOnUtc));
+
+		if (modifiedOnUtc == DateTime.MaxValue || modifiedOnUtc == DateTime.MinValue)
+			throw new ArgumentException(nameof(modifiedOnUtc));
+
+		if (string.IsNullOrEmpty(createdBy))
+			throw new ArgumentNullException(nameof(createdBy));
+
+		if (string.IsNullOrEmpty(modifiedBy))
+			throw new ArgumentNullException(nameof(modifiedBy));
+
+		CreatedBy = createdBy;
+		ModifiedBy = modifiedBy;
+		CreatedOnUtc = createdOnUtc;
+		ModifiedOnUtc = modifiedOnUtc;
 	}
 
 	protected override bool EqualsCore(AuditInfo other)

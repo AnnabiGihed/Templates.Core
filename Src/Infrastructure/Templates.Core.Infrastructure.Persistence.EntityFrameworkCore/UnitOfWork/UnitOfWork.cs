@@ -73,11 +73,7 @@ public abstract class UnitOfWork<TContext>(DbContext dbContext, IHttpContextAcce
 
 				if (entityEntry.State == EntityState.Added)
 				{
-					var currentTime = DateTime.UtcNow;
-					entityEntry.Entity.Audit.CreatedOnUtc = currentTime;
-					entityEntry.Entity.Audit.CreatedBy = isAuthenticated ? currentUser : "System";
-					entityEntry.Entity.Audit.ModifiedOnUtc = currentTime;
-					entityEntry.Entity.Audit.ModifiedBy = isAuthenticated ? currentUser : "System";
+					entityEntry.Entity.Audit.Update(isAuthenticated ? currentUser : "System", isAuthenticated ? currentUser : "System", DateTime.UtcNow, DateTime.UtcNow);
 				}
 				else if (entityEntry.State == EntityState.Modified)
 				{
