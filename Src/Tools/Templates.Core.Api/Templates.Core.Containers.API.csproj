@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Templates.Core.Application\Templates.Core.Application.csproj" />
     <ProjectReference Include="..\..\Core\Templates.Core.Domain\Templates.Core.Domain.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Templates.Core.Infrastructure.Abstraction\Templates.Core.Infrastructure.Abstraction.csproj" />
   </ItemGroup>
 
 </Project>

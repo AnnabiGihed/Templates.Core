@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Templates.Core.Infrastructure.Abstraction.Transaction;
 
 namespace Templates.Core.Containers.API.Middleware;
 
@@ -20,11 +21,12 @@ public class TransactionMiddleware<TContext> where TContext : DbContext
 	{
 		// Resolve DbContext within the request scope
 		var dbContext = context.RequestServices.GetRequiredService<TContext>();
-
-		using var transaction = await dbContext.Database.BeginTransactionAsync();
+		var transactionManager = context.RequestServices.GetRequiredService<ITransactionManager<TContext>>();
 
 		try
 		{
+			await transactionManager.BeginTransactionAsync();
+
 			// Capture the original response body
 			var originalResponseBodyStream = context.Response.Body;
 			using var memoryStream = new MemoryStream();
@@ -36,7 +38,7 @@ public class TransactionMiddleware<TContext> where TContext : DbContext
 			// Check response status code
 			if (context.Response.StatusCode >= 200 && context.Response.StatusCode < 300)
 			{
-				await transaction.CommitAsync();
+				await transactionManager.CommitTransactionAsync();
 
 				// Read and log the response body
 				memoryStream.Seek(0, SeekOrigin.Begin);
@@ -49,7 +51,7 @@ public class TransactionMiddleware<TContext> where TContext : DbContext
 			}
 			else
 			{
-				await transaction.RollbackAsync();
+				await transactionManager.RollbackTransactionAsync();
 				_logger.LogWarning("Transaction rolled back due to non-success status code: {StatusCode}", context.Response.StatusCode);
 
 				// Optional: You can modify the response body or status code here if needed.
@@ -58,8 +60,8 @@ public class TransactionMiddleware<TContext> where TContext : DbContext
 		catch (Exception ex)
 		{
 			_logger.LogError(ex, "An error occurred while processing the request. Rolling back the transaction.");
-
-			await transaction.RollbackAsync();
+			
+			await transactionManager.RollbackTransactionAsync();
 
 			// Return an error response
 			context.Response.StatusCode = StatusCodes.Status500InternalServerError;

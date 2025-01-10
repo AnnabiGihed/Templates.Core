@@ -42,7 +42,7 @@ public abstract class UnitOfWork<TContext>(DbContext dbContext, IHttpContextAcce
 			var dbContextResult = await _dbContext.SaveChangesAsync(cancellationToken);
 
 			if (dbContextResult > 0)
-				return await TriggerOutboxProcessingAsync(cancellationToken);
+				return Result.Success();
 			else
 				return Result.Failure(new Error("SaveChangesError", "No changes were saved."));
 		}
@@ -110,28 +110,6 @@ public abstract class UnitOfWork<TContext>(DbContext dbContext, IHttpContextAcce
 		catch (Exception ex)
 		{
 			return Result.Failure(new Error("DomainEventError", $"An error occurred while saving domain events. {ex.Message}"));
-		}
-	}
-	protected async Task<Result> TriggerOutboxProcessingAsync(CancellationToken cancellationToken)
-	{
-		try
-		{
-			var messages = await _outboxRepository.GetUnprocessedMessagesAsync(cancellationToken);
-
-			if(messages == null || messages.Count == 0)
-				return Result.Success();
-
-			foreach (var message in messages)
-			{
-				var result = await _messagePublisher.PublishAsync(message);
-				result = await _outboxRepository.MarkAsProcessedAsync(message.Id, cancellationToken);		
-			}
-
-			return Result.Success();
-		}
-		catch (Exception ex)
-		{
-			return Result.Failure(new Error("OutboxProcessingError", $"An error occurred while processing the outbox messages, With Message : {ex.Message}"));
 		}
 	}
 	#endregion
