@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Serialization;
-
-namespace Templates.Core.Domain.Shared;
+﻿namespace Templates.Core.Domain.Shared;
 public class Result<TValue> : Result
 {
 	private readonly TValue? _value;

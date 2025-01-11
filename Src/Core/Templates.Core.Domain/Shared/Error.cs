@@ -49,4 +49,9 @@ public class Error : IEquatable<Error>
 	public override int GetHashCode() => HashCode.Combine(Code, Message);
 
 	public override string ToString() => Code;
+
+	#region Predefined Errors
+	public static Error SystemError(string message) => new("Error.SystemError", message);
+	public static Error InvalidValue(string message) => new("Error.InvalidValue", message);
+	#endregion
 }

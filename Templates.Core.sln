@@ -27,6 +27,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Containers", "Containers", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Templates.Core.Infrastructure.Abstraction", "Src\Infrastructure\Templates.Core.Infrastructure.Abstraction\Templates.Core.Infrastructure.Abstraction.csproj", "{BAFCEC8B-10F0-4133-B59C-3B02BC9D9FA9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Templates.Core.Infrastructure.Scheduling", "Src\Infrastructure\Templates.Core.Infrastructure.Scheduling\Templates.Core.Infrastructure.Scheduling.csproj", "{E39B8896-F129-44D7-94A7-78F7B7E30553}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -61,6 +63,10 @@ Global
 		{BAFCEC8B-10F0-4133-B59C-3B02BC9D9FA9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BAFCEC8B-10F0-4133-B59C-3B02BC9D9FA9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BAFCEC8B-10F0-4133-B59C-3B02BC9D9FA9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E39B8896-F129-44D7-94A7-78F7B7E30553}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E39B8896-F129-44D7-94A7-78F7B7E30553}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E39B8896-F129-44D7-94A7-78F7B7E30553}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E39B8896-F129-44D7-94A7-78F7B7E30553}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -77,5 +83,6 @@ Global
 		{90CC15D2-B266-40B6-8395-420BE395D231} = {3B691C3F-2184-4B9E-8B47-650C04203BD6}
 		{3B691C3F-2184-4B9E-8B47-650C04203BD6} = {C65D1B17-7D31-4FB1-94A1-2BDF4160C5A8}
 		{BAFCEC8B-10F0-4133-B59C-3B02BC9D9FA9} = {5C522C01-4562-46F5-AE0B-C0931006F43A}
+		{E39B8896-F129-44D7-94A7-78F7B7E30553} = {5C522C01-4562-46F5-AE0B-C0931006F43A}
 	EndGlobalSection
 EndGlobal
