@@ -20,20 +20,11 @@ public static class HangfireExtensions
 	/// <returns>The updated service collection.</returns>
 	public static IServiceCollection AddHangfireWithDashboard(this IServiceCollection services,	IConfiguration configuration, string connectionStringKey = "HangfireConnection")
 	{
+		var connectionString = configuration.GetConnectionString(connectionStringKey);
 		// Configure Hangfire with SQL Server storage.
 		services.AddHangfire(config =>
 		{
-			config.SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
-				  .UseSimpleAssemblyNameTypeSerializer()
-				  .UseDefaultTypeSerializer()
-				  .UseSqlServerStorage(connectionStringKey, new SqlServerStorageOptions
-				  {
-					  CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
-					  SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
-					  QueuePollInterval = TimeSpan.FromSeconds(15),
-					  UseRecommendedIsolationLevel = true,
-					  DisableGlobalLocks = true // Recommended for SQL Server performance.
-				  });
+			config.UseSqlServerStorage(connectionString);
 		});
 
 		// Add the Hangfire server and dashboard.
