@@ -65,16 +65,15 @@ public static class HangfireExtensions
 	}
 
 	/// <summary>
-	/// Registers the RecurringJobManager with the DI container.
+	/// Registers the RecurringJobManager with the DI container to support any parameter and result type dynamically.
 	/// </summary>
 	/// <typeparam name="TIdentifier">The type of the unique identifier for jobs.</typeparam>
-	/// <typeparam name="TParams">The type of the parameters for the job function.</typeparam>
-	/// <typeparam name="TValue">The return type of the job function result.</typeparam>
 	/// <param name="services">The service collection to add the RecurringJobManager to.</param>
 	/// <returns>The updated service collection.</returns>
-	public static IServiceCollection AddRecurringJobManager<TIdentifier, TParams, TValue>(this IServiceCollection services)
+	public static IServiceCollection AddRecurringJobManager<TIdentifier>(this IServiceCollection services)
 	{
-		services.AddScoped<IRecurringJobService<TIdentifier, TParams, TValue>, RecurringJobService<TIdentifier, TParams, TValue>>();
+		// Register the generic RecurringJobManager to allow dynamic parameter and result types.
+		services.AddScoped(typeof(IRecurringJobService<,,>), typeof(IRecurringJobService<,,>));
 		return services;
 	}
 }
