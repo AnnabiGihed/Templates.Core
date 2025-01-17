@@ -23,8 +23,19 @@ public class TransactionMiddleware<TContext> where TContext : DbContext
 		var dbContext = context.RequestServices.GetRequiredService<TContext>();
 		var transactionManager = context.RequestServices.GetRequiredService<ITransactionManager<TContext>>();
 
+		// Skip transaction for GET requests
+		if (context.Request.Method == HttpMethods.Get)
+		{
+			_logger.LogInformation("Skipping transaction for GET request.");
+			await _next(context);
+			return;
+		}
+
 		try
 		{
+			// Begin a transaction for write operations
+			_logger.LogInformation("Starting transaction for {Method} request to {Path}.", context.Request.Method, context.Request.Path);
+
 			await transactionManager.BeginTransactionAsync();
 
 			await _next(context);
@@ -33,6 +44,8 @@ public class TransactionMiddleware<TContext> where TContext : DbContext
 			if (context.Response.StatusCode >= 200 && context.Response.StatusCode < 300)
 			{
 				await transactionManager.CommitTransactionAsync();
+				_logger.LogInformation("Transaction committed successfully for {Method} request to {Path}.", context.Request.Method, context.Request.Path);
+
 			}
 			else
 			{
