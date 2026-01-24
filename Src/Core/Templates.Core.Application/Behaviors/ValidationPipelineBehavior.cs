@@ -1,86 +1,103 @@
-﻿using MediatR;
-using FluentValidation;
+﻿using FluentValidation;
+using MediatR;
 using Templates.Core.Domain.Shared;
 
 namespace Templates.Core.Application.Behaviors;
 
-public class ValidationPipelineBehavior<TRequest, TResponse>
-   : IPipelineBehavior<TRequest, TResponse>
-   where TRequest : IRequest<TResponse>
-   where TResponse : Result
+/// <summary>
+/// Author      : Gihed Annabi
+/// Date        : 01-2026
+/// Purpose     : MediatR pipeline behavior that executes FluentValidation validators for the request.
+///              If validation errors exist, returns a validation failure Result (ValidationResult / ValidationResult{T}).
+///              Otherwise continues to the next handler.
+/// </summary>
+/// <typeparam name="TRequest">The request type (command or query).</typeparam>
+/// <typeparam name="TResponse">The response type, constrained to <see cref="Result"/>.</typeparam>
+public sealed class ValidationPipelineBehavior<TRequest, TResponse>
+	: IPipelineBehavior<TRequest, TResponse>
+	where TRequest : IRequest<TResponse>
+	where TResponse : Result
 {
-	/// <summary>
-	/// Validators comming from the FluentValidation library.
-	/// </summary>
-	private readonly IEnumerable<IValidator<TRequest>> _validators;
-
-	public ValidationPipelineBehavior(IEnumerable<IValidator<TRequest>> validators) =>
-		_validators = validators;
+	private readonly IReadOnlyCollection<IValidator<TRequest>> _validators;
 
 	/// <summary>
-	/// What this method does:
-	/// ----------------------
-	/// +Validate the request object.
-	/// +If any errors return a ValidationResult.
-	/// +If no errors return the result of the next delegate execution.
+	/// Initializes a new instance of the <see cref="ValidationPipelineBehavior{TRequest, TResponse}"/> class.
 	/// </summary>
-	/// <param name="request">command or query</param>
-	/// <param name="next"></param>
-	/// <param name="cancellationToken"></param>
-	/// <returns></returns>
-	public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
+	/// <param name="validators">Validators registered for the request type.</param>
+	public ValidationPipelineBehavior(IEnumerable<IValidator<TRequest>> validators)
 	{
-		// Skip validation if not validators present ...
-		if (!_validators.Any())
-		{
-			// execute next in the requesthandler ...
-			return await next();
-		}
+		_validators = validators?.ToArray() ?? throw new ArgumentNullException(nameof(validators));
+	}
 
-		// If we have validators:
-		// + Perform the validation logic.
-		// + Wrap result of the  validation logic into a ValidationResult object.
-		// + Return the ValidationResult object from the pipeline.
-		Error[] errors = _validators
-			.Select(async validator => await validator.ValidateAsync(request))
-			.SelectMany(validationResult => validationResult.Result.Errors)
-			.Where(validationFailure => validationFailure is not null)
-			.Select(failure => new Error(
-				failure.PropertyName,
-				failure.ErrorMessage))
+	/// <summary>
+	/// Executes FluentValidation and returns validation failures as a ValidationResult.
+	/// </summary>
+	public async Task<TResponse> Handle(
+		TRequest request,
+		RequestHandlerDelegate<TResponse> next,
+		CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(request);
+		ArgumentNullException.ThrowIfNull(next);
+
+		if (_validators.Count == 0)
+			return await next();
+
+		var context = new ValidationContext<TRequest>(request);
+
+		// Run all validators concurrently and await properly.
+		var validationResults = await Task.WhenAll(
+			_validators.Select(v => v.ValidateAsync(context, cancellationToken)));
+
+		var errors = validationResults
+			.SelectMany(r => r.Errors)
+			.Where(f => f is not null)
+			.Select(f => new Error(
+				code: f.PropertyName,   // You can change this to a standard code if you prefer.
+				message: f.ErrorMessage))
 			.Distinct()
 			.ToArray();
 
-		if (errors.Any())
-		{
+		if (errors.Length > 0)
 			return CreateValidationResult<TResponse>(errors);
-		}
 
 		return await next();
 	}
 
 	/// <summary>
-	/// Create a Result class containing all ValidationErrors.
+	/// Creates either a non-generic <see cref="ValidationResult"/> (when TResponse is Result)
+	/// or a generic <see cref="ValidationResult{T}"/> (when TResponse is Result{T}).
 	/// </summary>
-	/// <typeparam name="TResult">result class</typeparam>
-	/// <param name="errors">errors passed to result class validation errors</param>
-	/// <returns></returns>
 	private static TResult CreateValidationResult<TResult>(Error[] errors)
 		where TResult : Result
 	{
+		ArgumentNullException.ThrowIfNull(errors);
+
+		// Non-generic Result
 		if (typeof(TResult) == typeof(Result))
+			return (ValidationResult.WithErrors(errors) as TResult)!;
+
+		// Generic Result<T>
+		if (typeof(TResult).IsGenericType &&
+			typeof(TResult).GetGenericTypeDefinition() == typeof(Result<>))
 		{
-			// return non-generic validation result.
-			return (ValidationResult.WithErrors(errors) as TResult)!; // ! = null-forgiving operator, because we assume never having nulls ...
+			var valueType = typeof(TResult).GenericTypeArguments[0];
+
+			var validationResultType = typeof(ValidationResult<>).MakeGenericType(valueType);
+
+			var factory = validationResultType.GetMethod(
+				nameof(ValidationResult<int>.WithErrors),
+				new[] { typeof(Error[]) });
+
+			if (factory is null)
+				throw new InvalidOperationException($"Could not find WithErrors(Error[]) on {validationResultType.FullName}.");
+
+			var instance = factory.Invoke(null, new object?[] { errors });
+			return (TResult)instance!;
 		}
 
-		// in case of returning a generic result
-		object validationResult = typeof(ValidationResult<>)
-			.GetGenericTypeDefinition()
-			.MakeGenericType(typeof(TResult).GenericTypeArguments[0]) // we only have 1 generic argument in the generic result class.
-			.GetMethod(nameof(ValidationResult.WithErrors))!
-			.Invoke(null, new object?[] { errors })!;
-
-		return (TResult)validationResult;
+		throw new InvalidOperationException(
+			$"Unsupported response type '{typeof(TResult).FullName}'. " +
+			$"ValidationPipelineBehavior supports Result and Result<T> only.");
 	}
 }

@@ -1,8 +1,8 @@
 ﻿using MediatR;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
-using Templates.Core.Domain.Shared;
+using Microsoft.AspNetCore.Mvc;
 using Templates.Core.Application.Exceptions;
+using Templates.Core.Domain.Shared;
 
 namespace Templates.Core.Containers.API.Abstractions;
 
@@ -11,104 +11,136 @@ public abstract class ApiController : ControllerBase
 {
 	protected readonly ISender Sender;
 
-	protected ApiController(ISender sender) => Sender = sender;
+	protected ApiController(ISender sender) =>
+		Sender = sender ?? throw new ArgumentNullException(nameof(sender));
 
-	#region -Option 1 : HandleFailure
+	#region Option 1 : HandleFailure (returns ProblemDetails directly)
 
 	protected ActionResult HandleFailure(Result result)
 	{
-		return (result.ResultExceptionType == ResultExceptionType.NotFound) ?
-				HandleNotFoundFailure(result)
-				:
-				HandleBadRequestFailure(result);
+		ArgumentNullException.ThrowIfNull(result);
+
+		if (result.IsSuccess)
+			throw new InvalidOperationException("HandleFailure cannot be called for a successful result.");
+
+		return result.ResultExceptionType switch
+		{
+			ResultExceptionType.NotFound => HandleNotFoundFailure(result),
+			ResultExceptionType.Conflict => HandleConflictFailure(result),
+			ResultExceptionType.Unauthorized => HandleUnauthorizedFailure(result),
+			ResultExceptionType.Forbidden => HandleForbiddenFailure(result),
+			_ => HandleBadRequestFailure(result)
+		};
 	}
 
 	private ActionResult HandleNotFoundFailure(Result result) =>
-		result switch
-		{
-			{ IsSuccess: true } => throw new InvalidOperationException(),
-			_ =>
-				NotFound(
-					CreateProblemDetails(
-						"Not Found",
-						StatusCodes.Status404NotFound,
-						result.Error))
-		};
+		NotFound(CreateProblemDetails(
+			title: "Not Found",
+			status: StatusCodes.Status404NotFound,
+			error: result.Error,
+			validationErrors: (result as IValidationResult)?.Errors));
+
+	private ActionResult HandleConflictFailure(Result result) =>
+		Conflict(CreateProblemDetails(
+			title: "Conflict",
+			status: StatusCodes.Status409Conflict,
+			error: result.Error,
+			validationErrors: (result as IValidationResult)?.Errors));
+
+	private ActionResult HandleUnauthorizedFailure(Result result) =>
+		Unauthorized(CreateProblemDetails(
+			title: "Unauthorized",
+			status: StatusCodes.Status401Unauthorized,
+			error: result.Error,
+			validationErrors: (result as IValidationResult)?.Errors));
+
+	private ActionResult HandleForbiddenFailure(Result result) =>
+		StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(
+			title: "Forbidden",
+			status: StatusCodes.Status403Forbidden,
+			error: result.Error,
+			validationErrors: (result as IValidationResult)?.Errors));
 
 	private ActionResult HandleBadRequestFailure(Result result) =>
-		result switch
-		{
-			{ IsSuccess: true } => throw new InvalidOperationException(),
-			IValidationResult validationResult =>
-				BadRequest(
-					CreateProblemDetails(
-						"Validation Error", StatusCodes.Status400BadRequest,
-						result.Error,
-						validationResult.Errors)),
-			_ =>
-				BadRequest(
-					CreateProblemDetails(
-						"Bad Request",
-						StatusCodes.Status400BadRequest,
-						result.Error))
-		};
+		BadRequest(CreateProblemDetails(
+			title: result is IValidationResult ? "Validation Error" : "Bad Request",
+			status: StatusCodes.Status400BadRequest,
+			error: result.Error,
+			validationErrors: (result as IValidationResult)?.Errors));
 
 	private static ProblemDetails CreateProblemDetails(
 		string title,
 		int status,
 		Error error,
-		Error[]? errors = null) =>
-		new()
+		IReadOnlyCollection<Error>? validationErrors = null)
+	{
+		ArgumentNullException.ThrowIfNull(error);
+
+		var problem = new ProblemDetails
 		{
 			Title = title,
-			Type = error.Code,
-			Detail = error.Message,
 			Status = status,
-			Extensions = { { nameof(errors), errors } }
+			Type = error.Code,
+			Detail = error.Message
 		};
 
-	#endregion -Option 1 : HandleFailure
+		if (validationErrors is not null && validationErrors.Count > 0)
+			problem.Extensions[nameof(validationErrors)] = validationErrors;
 
-	#region -Option 2 : HandleGlobalFailure
+		return problem;
+	}
+
+	#endregion
+
+	#region Option 2 : HandleGlobalFailure (throws exceptions for middleware)
 
 	protected ActionResult HandleGlobalFailure(Result result)
 	{
-		return (result.ResultExceptionType == ResultExceptionType.NotFound) ?
-				HandleGlobalNotFoundFailure(result)
-				:
-				HandleGlobalBadRequestFailure(result);
+		ArgumentNullException.ThrowIfNull(result);
+
+		if (result.IsSuccess)
+			throw new InvalidOperationException("HandleGlobalFailure cannot be called for a successful result.");
+
+		// If you use global exception middleware, throw strongly typed exceptions here.
+		return result.ResultExceptionType switch
+		{
+			ResultExceptionType.NotFound => throw CreateNotFoundException(result),
+			ResultExceptionType.Conflict => throw new BadRequestException(result.Error), // or create a ConflictException if you want
+			ResultExceptionType.Unauthorized => throw new BadRequestException(result.Error), // or UnauthorizedException
+			ResultExceptionType.Forbidden => throw new BadRequestException(result.Error), // or ForbiddenException
+			_ => throw CreateBadRequestException(result)
+		};
 	}
 
-	private ActionResult HandleGlobalNotFoundFailure(Result result) =>
-		result switch
-		{
-			{ IsSuccess: true } => throw new InvalidOperationException(),
-			_ =>
-				throw new NotFoundException(result.Error.Code, result.Error.Message)
-		};
+	private static Exception CreateNotFoundException(Result result)
+	{
+		// Your NotFoundException expects (name, key). We do not have a natural "key" here.
+		// Best we can do is map name=error.Code and key=error.Message (or error.Code again).
+		// Prefer a richer NotFoundException signature if you want strong typing.
+		return new NotFoundException(result.Error.Code, result.Error.Message);
+	}
 
-	private ActionResult HandleGlobalBadRequestFailure(Result result) =>
-		result switch
-		{
-			{ IsSuccess: true } => throw new InvalidOperationException(),
-			IValidationResult validationResult =>
-				throw new BadRequestException(result.Error, validationResult),
-			_ =>
-				throw new BadRequestException(result.Error)
-		};
+	private static Exception CreateBadRequestException(Result result)
+	{
+		return result is IValidationResult validationResult
+			? new BadRequestException(result.Error, validationResult)
+			: new BadRequestException(result.Error);
+	}
 
-	#endregion -Option 2 : HandleGlobalFailure
+	#endregion
 
-	#region -Option 3 : HandleResult
+	#region Option 3 : HandleResult (generic helper for controllers)
 
 	protected ActionResult HandleResult<T>(Result<T> result)
 	{
+		ArgumentNullException.ThrowIfNull(result);
+
 		if (result.IsFailure)
-		{
 			return HandleFailure(result);
-		}
-		return Ok(result);
+
+		// Usually you return the value, not the Result wrapper.
+		return Ok(result.Value);
 	}
 
-	#endregion -Option 3 : HandleResult
+	#endregion
 }

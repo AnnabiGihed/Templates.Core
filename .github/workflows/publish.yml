@@ -3,7 +3,7 @@ name: Publish NuGet Packages
 on:
   push:
     tags:
-      - 'v*.*.*' # Trigger on version tags (e.g., v1.0.0)
+      - 'v*.*.*'
 
 jobs:
   publish:
@@ -11,47 +11,60 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up .NET
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.x' # Update as needed (e.g., '7.x' or 'latest')
+        dotnet-version: '10.0.x'
 
     - name: Extract tag version
       id: extract_version
+      shell: bash
       run: |
-        # Remove the "v" prefix from the tag (e.g., v1.0.0 -> 1.0.0)
-        TAG_VERSION=${GITHUB_REF#refs/tags/v}
+        TAG_VERSION="${GITHUB_REF#refs/tags/v}"
         echo "Tag version: $TAG_VERSION"
         echo "version=$TAG_VERSION" >> $GITHUB_ENV
 
-    - name: Update project versions
-      run: |
-        # Find all .csproj files and update the Version property
-        for csproj in $(find . -name "*.csproj"); do
-          echo "Updating version for: $csproj"
-          sed -i "s|<Version>.*</Version>|<Version>${{ env.version }}</Version>|" "$csproj"
-        done
-
     - name: Authenticate to GitHub Packages
-      run: dotnet nuget add source "https://nuget.pkg.github.com/AnnabiGihed/index.json" --name "github" --username "AnnabiGihed" --password ${{ secrets.TEMPLATES_SECRET }} --store-password-in-clear-text
+      run: dotnet nuget add source "https://nuget.pkg.github.com/AnnabiGihed/index.json" \
+        --name "github" \
+        --username "AnnabiGihed" \
+        --password "${{ secrets.TEMPLATES_SECRET }}" \
+        --store-password-in-clear-text
 
-    - name: Build and pack all projects
+    - name: Restore
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build -c Release --no-restore
+
+    - name: Pack (only packable projects)
+      shell: bash
       run: |
-        # Find all .csproj files, build, and pack each
-        for csproj in $(find . -name "*.csproj"); do
-          echo "Processing project: $csproj"
-          dotnet build "$csproj" -c Release
-          dotnet pack "$csproj" -c Release
+        set -e
+        # Only pack projects that declare IsPackable=true
+        mapfile -t projects < <(grep -RIl "<IsPackable>true</IsPackable>" . | grep -E "\.csproj$" || true)
+
+        if [ ${#projects[@]} -eq 0 ]; then
+          echo "No packable projects found (IsPackable=true)."
+          exit 1
+        fi
+
+        for csproj in "${projects[@]}"; do
+          echo "Packing: $csproj"
+          dotnet pack "$csproj" -c Release --no-build /p:Version="${{ env.version }}" -o ./artifacts
         done
 
     - name: Publish all NuGet packages
+      shell: bash
       run: |
-        # Find all .nupkg files in the workspace and push to GitHub
-        for nupkg in $(find . -name "*.nupkg"); do
+        set -e
+        shopt -s nullglob
+        for nupkg in ./artifacts/*.nupkg; do
           echo "Publishing package: $nupkg"
           dotnet nuget push "$nupkg" \
             --source github \
-            --api-key ${{ secrets.TEMPLATES_SECRET }}
+            --api-key "${{ secrets.TEMPLATES_SECRET }}" \
+            --skip-duplicate
         done

@@ -3,7 +3,13 @@ using Templates.Core.Domain.Shared;
 
 namespace Templates.Core.Containers.API.Middleware;
 
-public class CustomValidationProblemDetails : ProblemDetails
+/// <summary>
+/// Author      : Gihed Annabi
+/// Date        : 01-2026
+/// Purpose     : Specialized <see cref="ProblemDetails"/> for validation failures.
+///              Adds a typed collection of validation errors.
+/// </summary>
+public sealed class CustomValidationProblemDetails : ProblemDetails
 {
-	public Error[] ValidationErrors { get; set; } = default!;
+	public IReadOnlyCollection<Error> ValidationErrors { get; init; } = Array.Empty<Error>();
 }

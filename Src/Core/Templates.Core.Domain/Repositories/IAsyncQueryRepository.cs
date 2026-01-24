@@ -1,15 +1,33 @@
-﻿using Templates.Core.Domain.Primitives;
+﻿using System.Linq.Expressions;
+using Templates.Core.Domain.Primitives;
 
 namespace Templates.Core.Domain.Repositories;
 
-public interface IAsyncQueryRepository<TProjection, TId> where TProjection : ProjectionRoot<TId>
+/// <summary>
+/// Author      : Gihed Annabi
+/// Date        : 01-2026
+/// Purpose     : Read-only repository for projections (query models).
+///              Uses expression-based predicates to keep evaluation server-side.
+/// </summary>
+public interface IAsyncQueryRepository<TProjection, TId>
+	where TProjection : ProjectionRoot<TId>
+	where TId : IStronglyTypedId<TId>
 {
 	Task<TProjection?> GetByIdAsync(TId id, CancellationToken cancellationToken = default);
-	Task<TProjection> GetByPredicateAsync(Func<TProjection, bool> predicate, string includeNavigationProperty = default!);
-	Task<IReadOnlyList<TProjection>> ListAllAsync(CancellationToken cancellationToken = default);
-	Task<TProjection> AddAsync(TProjection entity);
-	Task<bool> UpdateAsync(TProjection entity);
-	Task DeleteAsync(TProjection entity);
-	Task<IReadOnlyList<TProjection>> GetPagedReponseAsync(int page, int size, CancellationToken cancellationToken = default);
+
+	Task<TProjection?> FirstOrDefaultAsync(
+		Expression<Func<TProjection, bool>> predicate,
+		CancellationToken cancellationToken = default);
+
+	Task<IReadOnlyList<TProjection>> ListAsync(
+		Expression<Func<TProjection, bool>>? predicate = null,
+		CancellationToken cancellationToken = default);
+
+	Task<IReadOnlyList<TProjection>> GetPagedAsync(
+		int page,
+		int size,
+		Expression<Func<TProjection, bool>>? predicate = null,
+		CancellationToken cancellationToken = default);
+
 	Task<bool> ExistsAsync(TId id, CancellationToken cancellationToken = default);
 }

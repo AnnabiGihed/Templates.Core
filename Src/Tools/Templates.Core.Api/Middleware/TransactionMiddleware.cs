@@ -1,12 +1,18 @@
 ﻿using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Templates.Core.Infrastructure.Abstraction.Transaction;
 
 namespace Templates.Core.Containers.API.Middleware;
 
-public class TransactionMiddleware<TContext> where TContext : DbContext
+/// <summary>
+/// Author      : Gihed Annabi
+/// Date        : 01-2026
+/// Purpose     : Wraps non-GET requests in a database transaction.
+///              Transaction ownership is at middleware level (not UnitOfWork).
+/// </summary>
+public sealed class TransactionMiddleware<TContext> where TContext : DbContext
 {
 	private readonly RequestDelegate _next;
 	private readonly ILogger<TransactionMiddleware<TContext>> _logger;
@@ -19,45 +25,32 @@ public class TransactionMiddleware<TContext> where TContext : DbContext
 
 	public async Task InvokeAsync(HttpContext context)
 	{
-		// Resolve DbContext within the request scope
-		var dbContext = context.RequestServices.GetRequiredService<TContext>();
 		var transactionManager = context.RequestServices.GetRequiredService<ITransactionManager<TContext>>();
 
-		// Skip transaction for GET requests
 		if (context.Request.Method == HttpMethods.Get)
 		{
-			_logger.LogInformation("Skipping transaction for GET request.");
 			await _next(context);
 			return;
 		}
 
+		await transactionManager.BeginTransactionAsync();
+
 		try
 		{
-			// Begin a transaction for write operations
-			_logger.LogInformation("Starting transaction for {Method} request to {Path}.", context.Request.Method, context.Request.Path);
-
-			await transactionManager.BeginTransactionAsync();
-
 			await _next(context);
 
-			// Check response status code
-			if (context.Response.StatusCode >= 200 && context.Response.StatusCode < 300)
-			{
-				await transactionManager.CommitTransactionAsync();
-				_logger.LogInformation("Transaction committed successfully for {Method} request to {Path}.", context.Request.Method, context.Request.Path);
-
-			}
-			else
+			if (context.Response.StatusCode < 200 || context.Response.StatusCode >= 300)
 			{
 				await transactionManager.RollbackTransactionAsync();
-				_logger.LogWarning("Transaction rolled back due to non-success status code: {StatusCode}", context.Response.StatusCode);
+				return;
 			}
+
+			await transactionManager.CommitTransactionAsync();
 		}
-		catch (Exception ex)
+		catch
 		{
-			_logger.LogError(ex, "An error occurred while processing the request. Rolling back the transaction.");
-			
 			await transactionManager.RollbackTransactionAsync();
+			throw; // CRITICAL: do not swallow exceptions
 		}
 	}
 }

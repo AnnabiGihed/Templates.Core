@@ -1,74 +1,88 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore;
 using Templates.Core.Domain.Primitives;
 using Templates.Core.Domain.Repositories;
 
 namespace Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Repositories;
 
-public class BaseAsyncQueryRepository<TProjection, TId> : IAsyncQueryRepository<TProjection, TId> where TProjection : ProjectionRoot<TId>
+/// <summary>
+/// Author      : Gihed Annabi
+/// Date        : 01-2026
+/// Purpose     : EF Core base query repository for projection roots.
+///              - Read-only (no Add/Update/Delete).
+///              - Expression predicates to keep filtering server-side.
+///              - Uses AsNoTracking by default.
+/// </summary>
+/// <typeparam name="TProjection">Projection root type (read model).</typeparam>
+/// <typeparam name="TId">Strongly-typed identifier.</typeparam>
+public class BaseAsyncQueryRepository<TProjection, TId> : IAsyncQueryRepository<TProjection, TId>
+	where TProjection : ProjectionRoot<TId>
+	where TId : IStronglyTypedId<TId>
 {
-	protected readonly DbContext _dbContext;
+	protected readonly DbContext DbContext;
 
 	public BaseAsyncQueryRepository(DbContext dbContext)
 	{
-		_dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+		DbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
 	}
 
-	public async Task<TProjection> GetByPredicateAsync(Func<TProjection, bool> predicate, string includeNavigationProperty = default!)
+	public virtual Task<TProjection?> GetByIdAsync(TId id, CancellationToken cancellationToken = default)
 	{
-		TProjection? t;
-
-		t = (includeNavigationProperty != default) ?
-			_dbContext.Set<TProjection>().AsNoTracking().Include(includeNavigationProperty).Where(predicate).FirstOrDefault()
-			:
-			_dbContext.Set<TProjection>().AsNoTracking().Where(predicate).FirstOrDefault();
-
-		return t == null ? throw new ArgumentNullException(nameof(t)) :
-			await Task.FromResult(t);
+		ArgumentNullException.ThrowIfNull(id);
+		return DbContext.Set<TProjection>()
+			.AsNoTracking()
+			.FirstOrDefaultAsync(x => x.Id!.Equals(id), cancellationToken);
 	}
 
-	public async Task<TProjection?> GetByIdAsync(TId id, CancellationToken cancellationToken = default)
+	public virtual Task<TProjection?> FirstOrDefaultAsync(
+		Expression<Func<TProjection, bool>> predicate,
+		CancellationToken cancellationToken = default)
 	{
-		TProjection? t = await _dbContext.Set<TProjection>().FindAsync(new object[] { id }, cancellationToken);
-		return t;
+		ArgumentNullException.ThrowIfNull(predicate);
+
+		return DbContext.Set<TProjection>()
+			.AsNoTracking()
+			.FirstOrDefaultAsync(predicate, cancellationToken);
 	}
 
-	public async Task<IReadOnlyList<TProjection>> ListAllAsync(CancellationToken cancellationToken = default)
+	public virtual async Task<IReadOnlyList<TProjection>> ListAsync(
+		Expression<Func<TProjection, bool>>? predicate = null,
+		CancellationToken cancellationToken = default)
 	{
-		return await _dbContext.Set<TProjection>().AsNoTracking().ToListAsync(cancellationToken);
+		IQueryable<TProjection> query = DbContext.Set<TProjection>().AsNoTracking();
+
+		if (predicate is not null)
+			query = query.Where(predicate);
+
+		return await query.ToListAsync(cancellationToken);
 	}
 
-	public virtual async Task<IReadOnlyList<TProjection>> GetPagedReponseAsync(int page, int size, CancellationToken cancellationToken = default)
+	public virtual async Task<IReadOnlyList<TProjection>> GetPagedAsync(
+		int page,
+		int size,
+		Expression<Func<TProjection, bool>>? predicate = null,
+		CancellationToken cancellationToken = default)
 	{
-		return await _dbContext.Set<TProjection>().AsNoTracking().Skip((page - 1) * size).Take(size).AsNoTracking().ToListAsync(cancellationToken);
+		if (page <= 0) throw new ArgumentOutOfRangeException(nameof(page));
+		if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
+
+		IQueryable<TProjection> query = DbContext.Set<TProjection>().AsNoTracking();
+
+		if (predicate is not null)
+			query = query.Where(predicate);
+
+		return await query
+			.Skip((page - 1) * size)
+			.Take(size)
+			.ToListAsync(cancellationToken);
 	}
 
-	public async Task<TProjection> AddAsync(TProjection entity)
+	public virtual Task<bool> ExistsAsync(TId id, CancellationToken cancellationToken = default)
 	{
-		await _dbContext.Set<TProjection>().AddAsync(entity);
-		return entity;
-	}
+		ArgumentNullException.ThrowIfNull(id);
 
-	public async Task<bool> UpdateAsync(TProjection entity)
-	{
-		await Task.Run(() =>
-		{
-			_dbContext.Entry(entity).State = EntityState.Modified;
-		});
-
-		return true;
-	}
-
-	public async Task DeleteAsync(TProjection entity)
-	{
-		await Task.Run(() =>
-		{
-			_dbContext.Set<TProjection>().Remove(entity);
-		});
-	}
-
-	public async Task<bool> ExistsAsync(TId id, CancellationToken cancellationToken = default)
-	{
-		TProjection? t = await _dbContext.Set<TProjection>().FindAsync(new object[] { id }, cancellationToken);
-		return t != null;
+		return DbContext.Set<TProjection>()
+			.AsNoTracking()
+			.AnyAsync(x => x.Id!.Equals(id), cancellationToken);
 	}
 }

@@ -5,13 +5,11 @@ using Templates.Core.Infrastructure.Abstraction.Outbox.Repositories;
 
 namespace Templates.Core.Infrastructure.Persistence.EntityFrameworkCore.Outbox.Repositories;
 
-public class OutboxRepository<TContext>(TContext dbContext) : IOutboxRepository<TContext> where TContext : DbContext
+public sealed class OutboxRepository<TContext>(TContext dbContext) : IOutboxRepository<TContext>
+	where TContext : DbContext
 {
-	#region Properties
-	protected readonly TContext _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
-	#endregion
+	private readonly TContext _dbContext = dbContext;
 
-	#region IOutboxRepository Implementation
 	public async Task<Result> AddAsync(OutboxMessage message, CancellationToken cancellationToken = default)
 	{
 		try
@@ -21,34 +19,37 @@ public class OutboxRepository<TContext>(TContext dbContext) : IOutboxRepository<
 		}
 		catch (Exception ex)
 		{
-			return Result.Failure(new Error("AddOutboxMessageError", "An error occurred while adding the message to the outbox. With Message: " + ex.Message));
+			return Result.Failure(new Error("AddOutboxMessageError", ex.Message));
 		}
 	}
+
 	public async Task<Result> MarkAsProcessedAsync(Guid messageId, CancellationToken cancellationToken = default)
 	{
 		try
 		{
-			var message = await _dbContext.Set<OutboxMessage>().FindAsync(new object[] { messageId }, cancellationToken);
-			if (message != null)
-			{
-				message.Processed = true;
-				message.ProcessedAtUtc = DateTime.UtcNow;
+			var message = await _dbContext.Set<OutboxMessage>()
+				.FindAsync(new object[] { messageId }, cancellationToken);
 
-				_dbContext.Update(message);
+			if (message is null)
+				return Result.Success();
 
-				await _dbContext.SaveChangesAsync(cancellationToken);
-			}
+			message.Processed = true;
+			message.ProcessedAtUtc = DateTime.UtcNow;
 
 			return Result.Success();
 		}
 		catch (Exception ex)
 		{
-			return Result.Failure(new Error("MarkAsProcessedError", "An error occurred while marking the message as processed. With Message: " + ex.Message));
+			return Result.Failure(new Error("MarkAsProcessedError", ex.Message));
 		}
 	}
-	public async Task<IReadOnlyList<OutboxMessage>> GetUnprocessedMessagesAsync(CancellationToken cancellationToken = default)
+
+	public Task<IReadOnlyList<OutboxMessage>> GetUnprocessedMessagesAsync(CancellationToken cancellationToken = default)
 	{
-		return await _dbContext.Set<OutboxMessage>().Where(m => !m.Processed).OrderBy(m => m.CreatedAtUtc).ToListAsync(cancellationToken);
+		return _dbContext.Set<OutboxMessage>()
+			.Where(m => !m.Processed)
+			.OrderBy(m => m.CreatedAtUtc)
+			.ToListAsync(cancellationToken)
+			.ContinueWith(t => (IReadOnlyList<OutboxMessage>)t.Result, cancellationToken);
 	}
-	#endregion
 }

@@ -1,15 +1,21 @@
-﻿using CSharpFunctionalExtensions;
+﻿using Templates.Core.Domain.Primitives;
 
 namespace Templates.Core.Domain.Repositories;
 
-public interface IAsyncCommandRepository<TEntity, TId> where TEntity : Entity<TId> where TId : IComparable<TId>
+/// <summary>
+/// Author      : Gihed Annabi
+/// Date        : 01-2026
+/// Purpose     : Defines write operations for aggregate roots.
+///              Commands modify state and are responsible for persistence of changes.
+/// </summary>
+/// <typeparam name="TEntity">The aggregate root type.</typeparam>
+/// <typeparam name="TId">The strongly-typed identifier type.</typeparam>
+
+public interface IAsyncCommandRepository<TEntity, TId>
+	where TEntity : AggregateRoot<TId>
+	where TId : IStronglyTypedId<TId>
 {
-	Task<TEntity?> GetByIdAsync(TId id, CancellationToken cancellationToken = default);
-	Task<TEntity> GetByPredicateAsync(Func<TEntity, bool> predicate, string includeNavigationProperty = default!);
-	Task<IReadOnlyList<TEntity>> ListAllAsync(CancellationToken cancellationToken = default);
-	Task<TEntity> AddAsync(TEntity entity);
-	Task<bool> UpdateAsync(TEntity entity);
-	Task DeleteAsync(TEntity entity);
-	Task<IReadOnlyList<TEntity>> GetPagedReponseAsync(int page, int size, CancellationToken cancellationToken = default);
-	Task<bool> ExistsAsync(TId id, CancellationToken cancellationToken = default);
+	Task AddAsync(TEntity entity, CancellationToken cancellationToken = default);
+	Task UpdateAsync(TEntity entity, CancellationToken cancellationToken = default);
+	Task DeleteAsync(TEntity entity, CancellationToken cancellationToken = default); // soft delete by default
 }

@@ -1,13 +1,26 @@
-﻿namespace Templates.Core.Domain.Exceptions;
+﻿using Templates.Core.Domain;
+using Templates.Core.Domain.Exceptions;
 
-public class NotExistsDomainException : DomainException
+/// <summary>
+/// Author      : Gihed Annabi
+/// Date        : 01-2026
+/// Purpose     : Domain exception thrown when an expected entity/value does not exist.
+/// </summary>
+public sealed class NotExistsDomainException : DomainException
 {
-	public NotExistsDomainException(string parameterName, string message) : base(parameterName, message)
+	/// <summary>
+	/// Initializes a new instance of the <see cref="NotExistsDomainException"/> class.
+	/// </summary>
+	public NotExistsDomainException(string parameterName, string message)
+		: base(parameterName, message)
 	{
 	}
 
-	public NotExistsDomainException(string parameterName) : this(parameterName, Resource.NotExists)
+	/// <summary>
+	/// Initializes a new instance of the <see cref="NotExistsDomainException"/> class using the default resource message.
+	/// </summary>
+	public NotExistsDomainException(string parameterName)
+		: this(parameterName, Resource.NotExists)
 	{
-
 	}
 }

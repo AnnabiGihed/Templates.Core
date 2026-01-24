@@ -1,6 +1,6 @@
 ﻿using Templates.Core.Domain.Shared;
 using Templates.Core.Domain.Primitives;
-using Templates.Core.Application.Abstrations.Messaging.Events;
+using Templates.Core.Application.Abstractions.Messaging.Events;
 
 namespace Templates.Core.Application.DomainEventHandler;
 
