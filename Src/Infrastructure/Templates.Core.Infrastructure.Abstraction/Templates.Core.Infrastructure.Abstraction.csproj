@@ -4,12 +4,6 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Authors>Annabi Gihed</Authors>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <PackageId>Templates.Core.Infrastructure.Abstraction</PackageId>
-    <Description>Templates.Core.Infrastructure.Abstraction</Description>
-    <RepositoryUrl>https://github.com/AnnabiGihed/Templates.Core</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>
