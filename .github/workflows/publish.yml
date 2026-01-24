@@ -26,14 +26,12 @@ jobs:
         echo "Tag version: $TAG_VERSION"
         echo "version=$TAG_VERSION" >> $GITHUB_ENV
 
-    - name: Authenticate to GitHub Packages
+    - name: Publish all NuGet packages
       run: |
-        dotnet nuget add source "https://nuget.pkg.github.com/AnnabiGihed/index.json" \
-          --source-name "github" \
-          --username "AnnabiGihed" \
-          --password "${{ secrets.TEMPLATES_SECRET }}" \
-          --store-password-in-clear-text
-
+        dotnet nuget push ./artifacts/*.nupkg \
+          --source "https://nuget.pkg.github.com/AnnabiGihed/index.json" \
+          --api-key "${{ secrets.TEMPLATES_SECRET }}" \
+          --skip-duplicate
 
     - name: Restore
       run: dotnet restore
