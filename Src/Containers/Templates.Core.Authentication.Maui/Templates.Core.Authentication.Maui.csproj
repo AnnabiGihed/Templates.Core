@@ -5,7 +5,6 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <UseMaui>true</UseMaui>
     <SingleProject>true</SingleProject>
 
     <!-- NuGet package metadata -->
@@ -18,11 +17,10 @@
       silent token refresh, SecureStorage persistence, and Blazor
       AuthenticationStateProvider integration.
     </Description>
-    <PackageTags>keycloak;maui;authentication;blazor;oidc;pkce</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.41" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.*" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.*" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.*" />

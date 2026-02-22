@@ -1,4 +1,4 @@
-﻿using Microsoft.OpenApi.Models;
+﻿using Microsoft.OpenApi;
 using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.SwaggerUI;
 using Swashbuckle.AspNetCore.SwaggerGen;
@@ -34,20 +34,12 @@ public static class SwaggerKeycloakExtensions
 	/// </summary>
 	public static SwaggerGenOptions AddKeycloakSecurityRequirement(this SwaggerGenOptions options)
 	{
-		options.AddSecurityRequirement(new OpenApiSecurityRequirement
-		{
+		options.AddSecurityRequirement(document =>
+			new OpenApiSecurityRequirement
 			{
-				new OpenApiSecurityScheme
-				{
-					Reference = new OpenApiReference
-					{
-						Type = ReferenceType.SecurityScheme,
-						Id   = SecuritySchemeName
-					}
-				},
-				Array.Empty<string>()
-			}
-		});
+				// For non-OAuth2 schemes, scopes MUST be empty
+				[new OpenApiSecuritySchemeReference(SecuritySchemeName, document)] = []
+			});
 
 		return options;
 	}
@@ -99,9 +91,9 @@ public static class SwaggerKeycloakExtensions
 	#endregion
 
 	#region Helpers
-	private static Dictionary<string, string> ParseScopes(string scopes) =>
-		scopes
-			.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-			.ToDictionary(s => s, s => s);
+	private static Dictionary<string, string> ParseScopes(string scopes)
+	{
+		return scopes.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToDictionary(s => s, s => s);
+	}
 	#endregion
 }
