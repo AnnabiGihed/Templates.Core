@@ -9,27 +9,22 @@ using Microsoft.IdentityModel.JsonWebTokens;
 namespace Templates.Core.Caching.Handlers;
 
 /// <summary>
-/// Plugs Redis token caching and revocation checking into the Keycloak JWT bearer pipeline.
+/// Author      : Gihed Annabi
+/// Date        : 01-2026
+/// Purpose     : Plugs Redis token caching and revocation checking into the Keycloak JWT bearer pipeline.
 ///
 /// On <c>OnTokenValidated</c>:
-///  1. Checks the revocation blacklist — rejects revoked tokens immediately.
-///  2. Checks the claims cache — if found, replaces parsed claims with cached ones (fast path).
-///  3. If not cached, flattens Keycloak roles into ClaimTypes.Role and stores them in Redis.
+///  1. Checks the individual-token revocation blacklist.
+///  2. Checks the global user revocation timestamp ("logout everywhere").
+///  3. Serves claims from Redis cache if available (fast path — skips re-parsing).
+///  4. On first request: flattens Keycloak roles into ClaimTypes.Role and writes to Redis.
 ///
-/// .NET 10 TOKEN HANDLER BUG — WHY BOTH TYPES ARE CHECKED:
+/// .NET 10 TOKEN HANDLER NOTE:
 /// ─────────────────────────────────────────────────────────────────────────────
-/// In .NET 8+, AddJwtBearer uses JsonWebTokenHandler by default (not JwtSecurityTokenHandler).
-/// JsonWebTokenHandler produces Microsoft.IdentityModel.JsonWebTokens.JsonWebToken,
-/// not System.IdentityModel.Tokens.Jwt.JwtSecurityToken.
-///
-/// The original code did:
-///     var jwt = context.SecurityToken as JwtSecurityToken;
-///
-/// On .NET 10 this returns null. Region 4's guard "jwt is not null" then fails,
-/// so FlattenKeycloakRoles is never called and no claims are ever cached.
-/// Every request returned a principal without any ClaimTypes.Role claims → 403.
-///
-/// Fix: try both casts. Extract claims via a unified helper that works with either type.
+/// AddJwtBearer in .NET 8+ defaults to <see cref="Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler"/>
+/// which produces <see cref="JsonWebToken"/>, NOT <see cref="JwtSecurityToken"/>.
+/// Both types are handled via <see cref="ExtractTokenInfo"/> so this class works
+/// regardless of which handler is active.
 /// </summary>
 public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 {
@@ -45,9 +40,9 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 		ITokenRevocationCache revocationCache,
 		ILogger<KeycloakRedisJwtEvents> logger)
 	{
-		_logger = logger;
 		_tokenCache = tokenCache;
 		_revocationCache = revocationCache;
+		_logger = logger;
 	}
 	#endregion
 
@@ -61,27 +56,27 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 
 		if (string.IsNullOrEmpty(accessToken)) return;
 
-		// ── Resolve the security token — works with both token handlers ──────────
-		// .NET 8+ AddJwtBearer defaults to JsonWebTokenHandler → JsonWebToken.
-		// .NET 6/7 / explicit override uses JwtSecurityTokenHandler → JwtSecurityToken.
-		var (subject, issuedAt, expiresAt, rawClaims) = ExtractTokenInfo(context.SecurityToken);
+		// Handles both JsonWebToken (.NET 8+ default) and JwtSecurityToken (explicit override)
+		var (subjectStr, issuedAt, expiresAt, rawClaims) = ExtractTokenInfo(context.SecurityToken);
 
-		#region 1. Revocation check (individual token)
+		#region 1. Individual token revocation check
 		if (await _revocationCache.IsRevokedAsync(accessToken, context.HttpContext.RequestAborted))
 		{
-			_logger.LogWarning("Rejected revoked token for sub={Sub}", subject ?? "unknown");
+			_logger.LogWarning("Rejected revoked token for sub={Sub}", subjectStr ?? "unknown");
 			context.Fail("Token has been revoked.");
 			return;
 		}
 		#endregion
 
 		#region 2. Global user revocation check
-		if (subject is not null && issuedAt is not null)
+		// ICurrentUser.UserId is Guid? — Keycloak sub is always a UUID, so this parse always succeeds.
+		if (subjectStr is not null && issuedAt is not null
+			&& Guid.TryParse(subjectStr, out var subjectGuid))
 		{
 			if (await _revocationCache.IsIssuedBeforeRevocationAsync(
-					subject, issuedAt.Value, context.HttpContext.RequestAborted))
+					subjectGuid, issuedAt.Value, context.HttpContext.RequestAborted))
 			{
-				_logger.LogWarning("Rejected globally-revoked token for user {Sub}", subject);
+				_logger.LogWarning("Rejected globally-revoked token for user {Sub}", subjectStr);
 				context.Fail("All tokens for this user have been revoked.");
 				return;
 			}
@@ -101,39 +96,33 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 		}
 		#endregion
 
-		#region 4. First request — flatten roles, extract and cache claims
+		#region 4. First request — flatten Keycloak roles and cache claims
 		if (context.Principal?.Identity is not ClaimsIdentity claimsIdentity)
 			return;
 
-		// Flatten Keycloak realm + client roles into standard ClaimTypes.Role claims.
-		// This is always done regardless of whether we have a full token object,
-		// because the identity contains the parsed claims from the JWT payload.
+		// Flatten realm_access.roles and resource_access.<clientId>.roles → ClaimTypes.Role
 		FlattenKeycloakRoles(claimsIdentity);
 
-		// Only cache if we could extract token metadata (expiry is required for TTL).
-		if (expiresAt is not null && subject is not null)
+		if (expiresAt is not null && subjectStr is not null)
 		{
 			var claimsToCache = new CachedTokenClaims
 			{
-				UserId = subject,
+				// CachedTokenClaims.UserId is string — it's a Redis DTO.
+				// ICurrentUser.UserId parses it to Guid on access.
+				UserId = subjectStr,
 				Email = claimsIdentity.FindFirst("email")?.Value
 						   ?? claimsIdentity.FindFirst(ClaimTypes.Email)?.Value
 						   ?? string.Empty,
 				Username = claimsIdentity.FindFirst("preferred_username")?.Value ?? string.Empty,
-
-				// Roles were just added by FlattenKeycloakRoles above.
 				Roles = claimsIdentity.Claims
 					.Where(c => c.Type == ClaimTypes.Role)
 					.Select(c => c.Value)
 					.ToList(),
-
-				// AllClaims: raw claim snapshot for the Redis rebuild path.
-				// Use the pre-parsed rawClaims if available; fall back to identity claims.
 				AllClaims = rawClaims?.GroupBy(c => c.Type)
 									  .ToDictionary(g => g.Key, g => g.First().Value)
-							?? claimsIdentity.Claims
-											 .GroupBy(c => c.Type)
-											 .ToDictionary(g => g.Key, g => g.First().Value),
+						?? claimsIdentity.Claims
+										 .GroupBy(c => c.Type)
+										 .ToDictionary(g => g.Key, g => g.First().Value),
 			};
 
 			await _tokenCache.SetClaimsAsync(
@@ -142,14 +131,13 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 
 			_logger.LogDebug(
 				"Token claims for user {UserId} written to Redis cache. Roles: [{Roles}]",
-				subject,
+				subjectStr,
 				string.Join(", ", claimsToCache.Roles));
 		}
 		else
 		{
 			_logger.LogDebug(
-				"Token metadata unavailable — claims not cached. " +
-				"Role flattening still applied for this request.");
+				"Token metadata unavailable — claims not cached. Role flattening still applied.");
 		}
 		#endregion
 	}
@@ -173,8 +161,10 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 			if (iatClaim is not null && long.TryParse(iatClaim.Value, out var iatUnix))
 				iat = DateTimeOffset.FromUnixTimeSeconds(iatUnix);
 
-			var exp = DateTimeOffset.FromUnixTimeSeconds(
-				long.Parse(jst.Claims.First(c => c.Type == "exp").Value));
+			var expClaim = jst.Claims.FirstOrDefault(c => c.Type == "exp");
+			DateTimeOffset? exp = expClaim is not null && long.TryParse(expClaim.Value, out var expUnix)
+				? DateTimeOffset.FromUnixTimeSeconds(expUnix)
+				: null;
 
 			return (jst.Subject, iat, exp, jst.Claims);
 		}
@@ -190,18 +180,34 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 				? null
 				: new DateTimeOffset(jwt.ValidTo, TimeSpan.Zero);
 
-			// JsonWebToken.Claims exposes IEnumerable<Claim> from the payload
-			return (jwt.Subject, iat, exp, jwt.Claims);
+			// JsonWebToken doesn't expose Claims directly — build from the raw JSON payload
+			var claims = new List<Claim>();
+			try
+			{
+				using var doc = JsonDocument.Parse(jwt.EncodedPayload
+					.Replace('-', '+').Replace('_', '/')
+					.PadRight(jwt.EncodedPayload.Length + (4 - jwt.EncodedPayload.Length % 4) % 4, '=') is var padded
+					? Convert.FromBase64String(padded) is var bytes
+						? System.Text.Encoding.UTF8.GetString(bytes)
+						: "{}"
+					: "{}");
+
+				foreach (var property in doc.RootElement.EnumerateObject())
+					claims.Add(new Claim(property.Name, property.Value.ToString()));
+			}
+			catch { /* malformed payload — return empty claims */ }
+
+			return (jwt.Subject, iat, exp, claims);
 		}
 
 		return (null, null, null, null);
 	}
 	#endregion
 
-	#region Helpers
+	#region Keycloak role flattening
 	private static void FlattenKeycloakRoles(ClaimsIdentity identity)
 	{
-		// ── Realm roles ────────────────────────────────────────────────────────
+		// realm_access.roles → ClaimTypes.Role
 		var realmClaim = identity.FindFirst("realm_access");
 		if (realmClaim is not null)
 		{
@@ -216,7 +222,7 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 			catch { /* malformed — skip */ }
 		}
 
-		// ── Client / resource roles ────────────────────────────────────────────
+		// resource_access.<clientId>.roles → ClaimTypes.Role
 		var resourceClaim = identity.FindFirst("resource_access");
 		if (resourceClaim is not null)
 		{
@@ -232,14 +238,17 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 			catch { /* malformed — skip */ }
 		}
 	}
+	#endregion
 
+	#region Claims rebuild from cache
 	private static List<Claim> RebuildClaims(CachedTokenClaims cached)
 	{
 		var claims = new List<Claim>
 		{
 			new(ClaimTypes.NameIdentifier, cached.UserId),
-			new("preferred_username",       cached.Username),
-			new(ClaimTypes.Email,           cached.Email),
+			new("sub",                     cached.UserId),
+			new("preferred_username",      cached.Username),
+			new(ClaimTypes.Email,          cached.Email),
 		};
 
 		claims.AddRange(cached.Roles.Select(r => new Claim(ClaimTypes.Role, r)));
