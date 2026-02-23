@@ -19,17 +19,7 @@ public sealed class CurrentUser : ICurrentUser
 	#endregion
 
 	#region ICurrentUser
-	public bool IsAuthenticated => User?.Identity?.IsAuthenticated == true;
-
-	public ClaimsPrincipal? Principal => User;
-
 	/// <inheritdoc />
-	/// <remarks>
-	/// Keycloak's sub claim is always a UUID (e.g. "a3f1c2d4-9e1b-4c7a-bb82-f1234567890a").
-	/// We parse it to <see cref="Guid"/> here so consumers never deal with raw strings.
-	/// Returns <c>null</c> if the claim is absent or, in practice-impossible edge cases,
-	/// malformed.
-	/// </remarks>
 	public Guid? UserId
 	{
 		get
@@ -41,19 +31,17 @@ public sealed class CurrentUser : ICurrentUser
 		}
 	}
 
-	public string? Username => User?.FindFirstValue("preferred_username") ?? User?.FindFirstValue(ClaimTypes.Name);
-
-	public string? Email =>	User?.FindFirstValue(ClaimTypes.Email) ?? User?.FindFirstValue("email");
-
 	public string? DisplayName
 	{
 		get
 		{
 			var name = User?.FindFirstValue("name");
-			if (name is not null) return name;
+			if (name is not null)
+				return name;
 
 			var given = User?.FindFirstValue("given_name");
 			var family = User?.FindFirstValue("family_name");
+
 			if (given is not null)
 				return string.IsNullOrWhiteSpace(family) ? given : $"{given} {family}".Trim();
 
@@ -62,10 +50,18 @@ public sealed class CurrentUser : ICurrentUser
 	}
 
 	public IReadOnlyList<string> Roles => User?.Claims
-			 .Where(c => c.Type == ClaimTypes.Role)
-			 .Select(c => c.Value)
-			 .ToList() ?? [];
+		.Where(c => c.Type == ClaimTypes.Role)
+		.Select(c => c.Value)
+		.ToList() ?? [];
+
+	public ClaimsPrincipal? Principal => User;
 
 	public bool IsInRole(string role) => User?.IsInRole(role) == true;
+
+	public bool IsAuthenticated => User?.Identity?.IsAuthenticated == true;
+
+	public string? Email => User?.FindFirstValue(ClaimTypes.Email) ?? User?.FindFirstValue("email");
+
+	public string? Username => User?.FindFirstValue("preferred_username") ?? User?.FindFirstValue(ClaimTypes.Name);
 	#endregion
 }

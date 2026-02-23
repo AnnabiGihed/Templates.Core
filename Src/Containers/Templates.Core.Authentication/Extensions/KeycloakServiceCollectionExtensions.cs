@@ -1,28 +1,26 @@
 ﻿using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Templates.Core.Authentication.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Templates.Core.Authentication.Extensions;
 
 /// <summary>
-/// Convenience extensions that compose all backend Keycloak registrations.
+/// Author      : Gihed Annabi
+/// Date        : 02-2026
+/// Purpose     : Convenience extensions that compose all backend Keycloak registrations.
+///              Registers Keycloak JWT authentication, current user resolution,
+///              and HTTP context access.
 /// </summary>
 public static class KeycloakServiceCollectionExtensions
 {
+	#region Public Methods
 	/// <summary>
 	/// Registers:
 	/// - Keycloak JWT authentication (via <see cref="KeycloakAuthenticationExtensions"/>)
 	/// - <see cref="ICurrentUser"/> scoped service
 	/// - <see cref="IHttpContextAccessor"/>
-	///
-	/// Call this once from your API's <c>Program.cs</c>:
-	/// <code>
-	///   builder.Services.AddKeycloakBackend(builder.Configuration);
-	/// </code>
 	/// </summary>
-	public static IServiceCollection AddKeycloakBackend(
-		this IServiceCollection services,
-		IConfiguration configuration)
+	public static IServiceCollection AddKeycloakBackend(this IServiceCollection services, IConfiguration configuration)
 	{
 		services.AddHttpContextAccessor();
 		services.AddScoped<ICurrentUser, CurrentUser>();
@@ -30,4 +28,5 @@ public static class KeycloakServiceCollectionExtensions
 
 		return services;
 	}
+	#endregion
 }

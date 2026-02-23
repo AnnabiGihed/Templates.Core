@@ -8,19 +8,10 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Templates.Core.Authentication.Extensions;
 
 /// <summary>
-/// Extension methods to configure Swagger UI with Keycloak OAuth2 PKCE flow.
-///
-/// Usage in Program.cs:
-/// <code>
-///   builder.Services.AddSwaggerGen(c =>
-///   {
-///       c.AddKeycloakSecurityDefinition(builder.Services.BuildServiceProvider());
-///       c.AddKeycloakSecurityRequirement();
-///   });
-///
-///   // In the app pipeline:
-///   app.UseSwaggerUI(c => c.UseKeycloakOAuth(app.Services));
-/// </code>
+/// Author      : Gihed Annabi
+/// Date        : 02-2026
+/// Purpose     : Provides Swagger / Swashbuckle extension methods to configure Swagger UI
+///              with Keycloak OAuth2 Authorization Code + PKCE and apply a global security requirement.
 /// </summary>
 public static class SwaggerKeycloakExtensions
 {
@@ -34,12 +25,10 @@ public static class SwaggerKeycloakExtensions
 	/// </summary>
 	public static SwaggerGenOptions AddKeycloakSecurityRequirement(this SwaggerGenOptions options)
 	{
-		options.AddSecurityRequirement(document =>
-			new OpenApiSecurityRequirement
-			{
-				// For non-OAuth2 schemes, scopes MUST be empty
-				[new OpenApiSecuritySchemeReference(SecuritySchemeName, document)] = []
-			});
+		options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+		{
+			[new OpenApiSecuritySchemeReference(SecuritySchemeName, document)] = []
+		});
 
 		return options;
 	}
@@ -55,7 +44,6 @@ public static class SwaggerKeycloakExtensions
 	{
 		var keycloak = serviceProvider.GetRequiredService<IOptions<KeycloakOptions>>().Value;
 
-		// Set via OAuthConfigObject — works across all Swashbuckle 6.x / 7.x versions
 		options.OAuthConfigObject.ScopeSeparator = " ";
 		options.OAuthConfigObject.ClientId = keycloak.ClientId;
 		options.OAuthConfigObject.UsePkceWithAuthorizationCodeGrant = true;
@@ -81,7 +69,7 @@ public static class SwaggerKeycloakExtensions
 				{
 					AuthorizationUrl = new Uri(keycloak.AuthorizationUrl),
 					TokenUrl = new Uri(keycloak.TokenUrl),
-					Scopes = ParseScopes(keycloak.Scopes),
+					Scopes = ParseScopes(keycloak.Scopes)
 				}
 			}
 		});
@@ -93,7 +81,9 @@ public static class SwaggerKeycloakExtensions
 	#region Helpers
 	private static Dictionary<string, string> ParseScopes(string scopes)
 	{
-		return scopes.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToDictionary(s => s, s => s);
+		return scopes
+			.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+			.ToDictionary(s => s, s => s);
 	}
 	#endregion
 }
