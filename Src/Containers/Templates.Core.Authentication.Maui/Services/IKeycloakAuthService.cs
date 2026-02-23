@@ -2,18 +2,29 @@
 using Templates.Core.Authentication.Maui.Events;
 
 namespace Templates.Core.Authentication.Maui.Services;
+
 /// <summary>
-/// Contract for the Keycloak authentication service.
+/// Author      : Gihed Annabi
+/// Date        : 02-2026
+/// Purpose     : Defines the contract for the Keycloak authentication service used by MAUI clients.
+///              Exposes authentication state changes, current user claims and the main auth flows
+///              (login, logout, access-token retrieval with refresh, and session restore).
 /// </summary>
 public interface IKeycloakAuthService
 {
-	/// <summary>Observable auth state — fires whenever login/logout/refresh happens.</summary>
+	/// <summary>
+	/// Observable auth state — fires whenever login/logout/refresh happens.
+	/// </summary>
 	event EventHandler<AuthStateChangedEventArgs>? AuthStateChanged;
 
-	/// <summary>Whether the user is currently authenticated (has a valid access token).</summary>
+	/// <summary>
+	/// Whether the user is currently authenticated (has a valid access token).
+	/// </summary>
 	bool IsAuthenticated { get; }
 
-	/// <summary>Claims from the current ID token / access token.</summary>
+	/// <summary>
+	/// Claims from the current ID token / access token.
+	/// </summary>
 	ClaimsPrincipal? User { get; }
 
 	/// <summary>

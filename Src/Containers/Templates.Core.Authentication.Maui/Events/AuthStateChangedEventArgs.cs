@@ -2,15 +2,25 @@
 
 namespace Templates.Core.Authentication.Maui.Events;
 
-/// <summary>Arguments for the <see cref="IKeycloakAuthService.AuthStateChanged"/> event.</summary>
+/// <summary>
+/// Author      : Gihed Annabi
+/// Date        : 02-2026
+/// Purpose     : Event arguments for <see cref="IKeycloakAuthService.AuthStateChanged"/>,
+///              carrying the current authentication flag and the associated user principal.
+/// </summary>
 public sealed class AuthStateChangedEventArgs : EventArgs
 {
+	#region Properties
 	public bool IsAuthenticated { get; }
-	public ClaimsPrincipal? User { get; }
 
+	public ClaimsPrincipal? User { get; }
+	#endregion
+
+	#region Constructor
 	public AuthStateChangedEventArgs(bool isAuthenticated, ClaimsPrincipal? user)
 	{
 		IsAuthenticated = isAuthenticated;
 		User = user;
 	}
+	#endregion
 }

@@ -4,35 +4,31 @@ using Templates.Core.Authentication.Maui.Services;
 namespace Templates.Core.Authentication.Maui.Handlers;
 
 /// <summary>
-/// HTTP <see cref="DelegatingHandler"/> that automatically attaches the Keycloak access token
-/// as a Bearer header on every outgoing request.
-///
-/// Also handles 401 responses by attempting a silent token refresh and retrying once.
-///
-/// Register with:
-/// <code>
-///   services.AddHttpClient("MyApi", c => c.BaseAddress = new Uri("https://api.example.com"))
-///           .AddKeycloakHandler();
-/// </code>
+/// Author      : Gihed Annabi
+/// Date        : 02-2026
+/// Purpose     : HTTP <see cref="DelegatingHandler"/> that attaches the Keycloak access token as a Bearer header
+///              on outgoing requests and handles 401 responses by attempting a one-time silent refresh and retry.
+///              Intended to be registered on an <see cref="HttpClient"/> via DI.
 /// </summary>
 public sealed class KeycloakAuthorizationMessageHandler : DelegatingHandler
 {
+	#region Dependencies
 	private readonly IKeycloakAuthService _auth;
 	private readonly ILogger<KeycloakAuthorizationMessageHandler> _logger;
+	#endregion
 
-	public KeycloakAuthorizationMessageHandler(
-		IKeycloakAuthService auth,
-		ILogger<KeycloakAuthorizationMessageHandler> logger)
+	#region Constructor
+	public KeycloakAuthorizationMessageHandler(IKeycloakAuthService auth, ILogger<KeycloakAuthorizationMessageHandler> logger)
 	{
 		_auth = auth;
 		_logger = logger;
 	}
+	#endregion
 
-	protected override async Task<HttpResponseMessage> SendAsync(
-		HttpRequestMessage request,
-		CancellationToken ct)
+	#region Overrides
+	/// <inheritdoc />
+	protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
 	{
-		// Skip if an Authorization header was already set manually
 		if (request.Headers.Authorization is not null)
 			return await base.SendAsync(request, ct);
 
@@ -47,12 +43,12 @@ public sealed class KeycloakAuthorizationMessageHandler : DelegatingHandler
 		}
 
 		if (token is not null)
-			request.Headers.Authorization =
-				new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+		{
+			request.Headers.Authorization =	new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+		}
 
 		var response = await base.SendAsync(request, ct);
 
-		// On 401, attempt a one-time silent refresh and retry
 		if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized && token is not null)
 		{
 			_logger.LogInformation("Received 401 — attempting silent token refresh and retry.");
@@ -62,8 +58,8 @@ public sealed class KeycloakAuthorizationMessageHandler : DelegatingHandler
 			{
 				var freshToken = await _auth.GetAccessTokenAsync(ct);
 				var retryRequest = await CloneRequestAsync(request, ct);
-				retryRequest.Headers.Authorization =
-					new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", freshToken);
+				retryRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", freshToken);
+
 				response = await base.SendAsync(retryRequest, ct);
 			}
 			catch (Exception ex)
@@ -74,9 +70,10 @@ public sealed class KeycloakAuthorizationMessageHandler : DelegatingHandler
 
 		return response;
 	}
+	#endregion
 
-	private static async Task<HttpRequestMessage> CloneRequestAsync(
-		HttpRequestMessage original, CancellationToken ct)
+	#region Private helpers
+	private static async Task<HttpRequestMessage> CloneRequestAsync(HttpRequestMessage original, CancellationToken ct)
 	{
 		var clone = new HttpRequestMessage(original.Method, original.RequestUri);
 
@@ -93,4 +90,5 @@ public sealed class KeycloakAuthorizationMessageHandler : DelegatingHandler
 
 		return clone;
 	}
+	#endregion
 }

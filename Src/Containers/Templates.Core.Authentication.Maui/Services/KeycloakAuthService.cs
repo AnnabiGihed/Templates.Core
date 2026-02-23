@@ -1,54 +1,54 @@
-﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using System;
-using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.Text;
+using System.Text.Json;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using Templates.Core.Authentication.Maui.Events;
-using Templates.Core.Authentication.Maui.Responses;
-using Templates.Core.Authentication.Maui.Storage;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.IdentityModel.Tokens.Jwt;
 using Templates.Core.Authentication.Models;
+using Templates.Core.Authentication.Maui.Events;
+using Templates.Core.Authentication.Maui.Storage;
+using Templates.Core.Authentication.Maui.Responses;
 
 namespace Templates.Core.Authentication.Maui.Services;
 
 /// <summary>
-/// Full Keycloak authentication service for .NET MAUI Blazor Hybrid.
-///
-/// Implements Authorization Code + PKCE using <see cref="WebAuthenticator"/>
-/// (MAUI's platform-native OAuth helper) and handles:
-///  - Login (browser redirect → code exchange)
-///  - Silent token refresh via refresh_token grant
-///  - Secure token persistence in OS keychain
-///  - Logout (revoke + end-session)
-///  - User claims extraction from the JWT
+/// Author      : Gihed Annabi
+/// Date        : 02-2026
+/// Purpose     : Full Keycloak authentication service for .NET MAUI Blazor Hybrid.
+///              Implements Authorization Code + PKCE using <see cref="WebAuthenticator"/> and provides:
+///              - Login (browser redirect → code exchange)
+///              - Silent refresh via refresh_token grant
+///              - Secure token persistence in OS secure storage
+///              - Logout (revoke + end-session)
+///              - Claims extraction from the access token
 /// </summary>
 public sealed class KeycloakAuthService : IKeycloakAuthService
 {
+	#region Dependencies
+	private readonly HttpClient _http;
 	private readonly KeycloakOptions _options;
 	private readonly IKeycloakTokenStorage _storage;
-	private readonly HttpClient _http;
 	private readonly ILogger<KeycloakAuthService> _logger;
+	#endregion
 
-	private KeycloakTokenSet? _current;
+	#region State
 	private ClaimsPrincipal? _user;
+	private KeycloakTokenSet? _current;
 	private readonly SemaphoreSlim _refreshLock = new(1, 1);
+	#endregion
+
+	#region Public API
+	public ClaimsPrincipal? User => _user;
 
 	public event EventHandler<AuthStateChangedEventArgs>? AuthStateChanged;
 
-	public bool IsAuthenticated =>
-		_current is not null && !_current.IsExpired;
+	public bool IsAuthenticated => _current is not null && !_current.IsExpired;
+	#endregion
 
-	public ClaimsPrincipal? User => _user;
-
-	public KeycloakAuthService(
-		IOptions<KeycloakOptions> options,
-		IKeycloakTokenStorage storage,
-		IHttpClientFactory httpClientFactory,
-		ILogger<KeycloakAuthService> logger)
+	#region Constructor
+	public KeycloakAuthService(IOptions<KeycloakOptions> options, IKeycloakTokenStorage storage, IHttpClientFactory httpClientFactory, ILogger<KeycloakAuthService> logger)
 	{
 		_options = options.Value;
 		_options.Validate();
@@ -56,23 +56,26 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 		_http = httpClientFactory.CreateClient(nameof(KeycloakAuthService));
 		_logger = logger;
 	}
+	#endregion
 
-	// ─── Login ───────────────────────────────────────────────────────────────────
-
+	#region Login
+	/// <inheritdoc />
 	public async Task<bool> LoginAsync(CancellationToken ct = default)
 	{
 		try
 		{
-			// 1. Generate PKCE pair
+			#region Generate PKCE pair
 			var (codeVerifier, codeChallenge) = GeneratePkce();
+			#endregion
 
-			// 2. Build the authorization URL
+			#region Build the authorization URL
 			var state = GenerateState();
-			var redirectUri = $"{_options.ClientId}://callback"; // must match Keycloak client
+			var redirectUri = $"{_options.ClientId}://callback";
 
 			var authUrl = new Uri(BuildAuthUrl(codeChallenge, state, redirectUri));
+			#endregion
 
-			// 3. Launch system browser and wait for callback
+			#region Launch system browser and wait for callback
 			var result = await WebAuthenticator.Default.AuthenticateAsync(
 				new WebAuthenticatorOptions
 				{
@@ -86,12 +89,15 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 				_logger.LogWarning("Keycloak: authorization was cancelled or returned no code.");
 				return false;
 			}
+			#endregion
 
-			// 4. Exchange authorization code for tokens
+			#region Exchange authorization code for tokens
 			var tokens = await ExchangeCodeAsync(code, codeVerifier, redirectUri, ct);
 			await PersistAndNotify(tokens, ct);
 
 			_logger.LogInformation("Keycloak: user {Username} logged in.", _user?.FindFirst("preferred_username")?.Value);
+			#endregion
+
 			return true;
 		}
 		catch (TaskCanceledException)
@@ -105,20 +111,19 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 			return false;
 		}
 	}
+	#endregion
 
-	// ─── Logout ──────────────────────────────────────────────────────────────────
-
+	#region Logout
+	/// <inheritdoc />
 	public async Task LogoutAsync(CancellationToken ct = default)
 	{
 		var current = _current;
 
-		// Clear local state first so UI reacts immediately
 		_current = null;
 		_user = null;
 		await _storage.ClearAsync(ct);
 		NotifyAuthStateChanged(isAuthenticated: false);
 
-		// Best-effort: revoke the refresh token on the server
 		if (current?.RefreshToken is not null)
 		{
 			try
@@ -131,14 +136,14 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 			}
 		}
 
-		// Open end-session URL so the Keycloak SSO session is terminated
 		if (current?.IdToken is not null)
 		{
 			try
 			{
-				var endSessionUrl = $"{_options.LogoutUrl}" +
-								   $"?id_token_hint={Uri.EscapeDataString(current.IdToken)}" +
-								   $"&post_logout_redirect_uri={Uri.EscapeDataString($"{_options.ClientId}://loggedout")}";
+				var endSessionUrl = $"{_options.LogoutUrl}"
+					+ $"?id_token_hint={Uri.EscapeDataString(current.IdToken)}"
+					+ $"&post_logout_redirect_uri={Uri.EscapeDataString($"{_options.ClientId}://loggedout")}";
+
 				await Browser.Default.OpenAsync(endSessionUrl, BrowserLaunchMode.SystemPreferred);
 			}
 			catch (Exception ex)
@@ -149,9 +154,10 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 
 		_logger.LogInformation("Keycloak: user logged out.");
 	}
+	#endregion
 
-	// ─── Get access token (with silent refresh) ──────────────────────────────────
-
+	#region Get access token (with silent refresh)
+	/// <inheritdoc />
 	public async Task<string> GetAccessTokenAsync(CancellationToken ct = default)
 	{
 		if (_current is null)
@@ -165,15 +171,17 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 
 		return await RefreshSilentlyAsync(ct);
 	}
+	#endregion
 
-	// ─── Restore session ─────────────────────────────────────────────────────────
-
+	#region Restore session
+	/// <inheritdoc />
 	public async Task<bool> TryRestoreSessionAsync(CancellationToken ct = default)
 	{
 		try
 		{
 			var stored = await _storage.GetAsync(ct);
-			if (stored is null) return false;
+			if (stored is null)
+				return false;
 
 			if (!stored.IsExpired)
 			{
@@ -184,7 +192,7 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 
 			if (stored.CanRefresh)
 			{
-				_current = stored; // needed so RefreshSilentlyAsync can read refresh token
+				_current = stored;
 				await RefreshSilentlyAsync(ct);
 				_logger.LogInformation("Keycloak: session refreshed on restore.");
 				return true;
@@ -200,15 +208,19 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 			return false;
 		}
 	}
+	#endregion
 
-	// ─── Internal helpers ────────────────────────────────────────────────────────
+	#region Internal helpers
+	private void NotifyAuthStateChanged(bool isAuthenticated)
+	{
+		AuthStateChanged?.Invoke(this, new AuthStateChangedEventArgs(isAuthenticated, _user));
+	}
 
 	private async Task<string> RefreshSilentlyAsync(CancellationToken ct)
 	{
 		await _refreshLock.WaitAsync(ct);
 		try
 		{
-			// Double-check: another thread may have already refreshed
 			if (_current is not null && !_current.IsExpired)
 				return _current.AccessToken;
 
@@ -219,7 +231,10 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 			await PersistAndNotify(tokens, ct);
 			return tokens.AccessToken;
 		}
-		finally { _refreshLock.Release(); }
+		finally
+		{
+			_refreshLock.Release();
+		}
 	}
 
 	private async Task PersistAndNotify(KeycloakTokenSet tokens, CancellationToken ct)
@@ -229,79 +244,84 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 		await _storage.SaveAsync(tokens, ct);
 		NotifyAuthStateChanged(isAuthenticated: true);
 	}
+	#endregion
 
-	private void NotifyAuthStateChanged(bool isAuthenticated) =>
-		AuthStateChanged?.Invoke(this, new AuthStateChangedEventArgs(isAuthenticated, _user));
-
-	// ─── Token exchange ──────────────────────────────────────────────────────────
-
-	private async Task<KeycloakTokenSet> ExchangeCodeAsync(
-		string code, string codeVerifier, string redirectUri, CancellationToken ct)
-	{
-		var body = new FormUrlEncodedContent(new Dictionary<string, string>
-		{
-			["grant_type"] = "authorization_code",
-			["client_id"] = _options.ClientId,
-			["code"] = code,
-			["redirect_uri"] = redirectUri,
-			["code_verifier"] = codeVerifier,
-		});
-
-		return await PostToTokenEndpointAsync(body, ct);
-	}
-
-	private async Task<KeycloakTokenSet> RefreshTokenGrantAsync(
-		string refreshToken, CancellationToken ct)
-	{
-		var body = new FormUrlEncodedContent(new Dictionary<string, string>
-		{
-			["grant_type"] = "refresh_token",
-			["client_id"] = _options.ClientId,
-			["refresh_token"] = refreshToken,
-		});
-
-		return await PostToTokenEndpointAsync(body, ct);
-	}
-
-	private async Task<KeycloakTokenSet> PostToTokenEndpointAsync(
-		FormUrlEncodedContent body, CancellationToken ct)
-	{
-		var response = await _http.PostAsync(_options.TokenUrl, body, ct);
-
-		if (!response.IsSuccessStatusCode)
-		{
-			var error = await response.Content.ReadAsStringAsync(ct);
-			throw new InvalidOperationException(
-				$"Keycloak token endpoint returned {response.StatusCode}: {error}");
-		}
-
-		var json = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>(
-			cancellationToken: ct)
-			?? throw new InvalidOperationException("Keycloak returned an empty token response.");
-
-		return new KeycloakTokenSet
-		{
-			AccessToken = json.AccessToken,
-			RefreshToken = json.RefreshToken,
-			IdToken = json.IdToken,
-			ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(json.ExpiresIn),
-		};
-	}
-
+	#region Token exchange
 	private async Task RevokeTokenAsync(string refreshToken, CancellationToken ct)
 	{
 		var body = new FormUrlEncodedContent(new Dictionary<string, string>
 		{
 			["token"] = refreshToken,
-			["token_type_hint"] = "refresh_token",
 			["client_id"] = _options.ClientId,
+			["token_type_hint"] = "refresh_token"
 		});
 
 		var revokeUrl = $"{_options.IssuerUrl}/protocol/openid-connect/revoke";
 		await _http.PostAsync(revokeUrl, body, ct);
 	}
 
-	// ─── PKCE helpers ────────────────────────────────────────────────────────────
+	private async Task<KeycloakTokenSet> RefreshTokenGrantAsync(string refreshToken, CancellationToken ct)
+	{
+		var body = new FormUrlEncodedContent(new Dictionary<string, string>
+		{
+			["grant_type"] = "refresh_token",
+			["refresh_token"] = refreshToken,
+			["client_id"] = _options.ClientId
+		});
+
+		return await PostToTokenEndpointAsync(body, ct);
+	}
+
+	private async Task<KeycloakTokenSet> PostToTokenEndpointAsync(FormUrlEncodedContent body, CancellationToken ct)
+	{
+		var response = await _http.PostAsync(_options.TokenUrl, body, ct);
+
+		if (!response.IsSuccessStatusCode)
+		{
+			var error = await response.Content.ReadAsStringAsync(ct);
+			throw new InvalidOperationException($"Keycloak token endpoint returned {response.StatusCode}: {error}");
+		}
+
+		var json = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>(cancellationToken: ct)
+			?? throw new InvalidOperationException("Keycloak returned an empty token response.");
+
+		return new KeycloakTokenSet
+		{
+			IdToken = json.IdToken,
+			AccessToken = json.AccessToken,
+			RefreshToken = json.RefreshToken,
+			ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(json.ExpiresIn)
+		};
+	}
+
+	private async Task<KeycloakTokenSet> ExchangeCodeAsync(string code, string codeVerifier, string redirectUri, CancellationToken ct)
+	{
+		var body = new FormUrlEncodedContent(new Dictionary<string, string>
+		{
+			["code"] = code,
+			["redirect_uri"] = redirectUri,
+			["code_verifier"] = codeVerifier,
+			["client_id"] = _options.ClientId,
+			["grant_type"] = "authorization_code"
+		});
+
+		return await PostToTokenEndpointAsync(body, ct);
+	}
+	#endregion
+
+	#region PKCE helpers
+	private static string GenerateState()
+	{
+		return Base64UrlEncode(RandomNumberGenerator.GetBytes(16));
+	}
+
+	private static string Base64UrlEncode(byte[] input)
+	{
+		return Convert.ToBase64String(input)
+			.TrimEnd('=')
+			.Replace('+', '-')
+			.Replace('/', '_');
+	}
 
 	private static (string verifier, string challenge) GeneratePkce()
 	{
@@ -311,18 +331,9 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 		var challenge = Base64UrlEncode(hash);
 		return (verifier, challenge);
 	}
+	#endregion
 
-	private static string GenerateState() =>
-		Base64UrlEncode(RandomNumberGenerator.GetBytes(16));
-
-	private static string Base64UrlEncode(byte[] input) =>
-		Convert.ToBase64String(input)
-			.TrimEnd('=')
-			.Replace('+', '-')
-			.Replace('/', '_');
-
-	// ─── Auth URL builder ────────────────────────────────────────────────────────
-
+	#region Auth URL builder
 	private string BuildAuthUrl(string codeChallenge, string state, string redirectUri)
 	{
 		var scopes = Uri.EscapeDataString(_options.Scopes);
@@ -335,15 +346,16 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 			   $"&code_challenge={codeChallenge}" +
 			   $"&code_challenge_method=S256";
 	}
+	#endregion
 
-	// ─── JWT claims parsing ──────────────────────────────────────────────────────
-
+	#region JWT claims parsing
 	private static ClaimsPrincipal ParseUserFromToken(string accessToken)
 	{
 		try
 		{
 			var handler = new JwtSecurityTokenHandler();
-			if (!handler.CanReadToken(accessToken)) return new ClaimsPrincipal();
+			if (!handler.CanReadToken(accessToken))
+				return new ClaimsPrincipal();
 
 			var jwt = handler.ReadJwtToken(accessToken);
 			var claims = new List<Claim>(jwt.Claims);
@@ -360,7 +372,9 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 							if (r.GetString() is { } rv)
 								claims.Add(new Claim(ClaimTypes.Role, rv));
 				}
-				catch { /* ignore */ }
+				catch
+				{
+				}
 			}
 
 			var identity = new ClaimsIdentity(claims, "keycloak", "preferred_username", ClaimTypes.Role);
@@ -371,4 +385,5 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 			return new ClaimsPrincipal();
 		}
 	}
+	#endregion
 }
