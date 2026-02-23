@@ -1,4 +1,5 @@
 ﻿using Templates.Core.Caching.Redis;
+using Templates.Core.Authentication;
 using Templates.Core.Caching.Handlers;
 using Microsoft.Extensions.Configuration;
 using Templates.Core.Caching.Abstractions;

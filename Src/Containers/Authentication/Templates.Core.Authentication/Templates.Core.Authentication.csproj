@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+
+    <!-- NuGet package metadata -->
+    <PackageId>Templates.Core.Authentication</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Templates.Core</Authors>
+    <Description>
+      Plug-and-play Keycloak JWT authentication for ASP.NET Core backends.
+      Includes JWT bearer setup, Swagger OAuth2 PKCE, claims transformation,
+      and ICurrentUser injection.
+    </Description>
+    <PackageTags>keycloak;authentication;jwt;swagger;aspnetcore</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.3" />
+  </ItemGroup>
+
+</Project>

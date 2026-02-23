@@ -25,6 +25,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Templates.Core.Authentication\Templates.Core.Authentication.csproj" />
+    <ProjectReference Include="..\Authentication\Templates.Core.Authentication\Templates.Core.Authentication.csproj" />
   </ItemGroup>
 </Project>

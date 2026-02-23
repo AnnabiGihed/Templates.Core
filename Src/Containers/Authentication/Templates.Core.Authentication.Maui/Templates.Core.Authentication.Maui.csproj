@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <SingleProject>true</SingleProject>
+
+    <!-- NuGet package metadata -->
+    <PackageId>Templates.Core.Authentication.Maui</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Templates.Core</Authors>
+    <Description>
+      Keycloak OIDC authentication for .NET MAUI Blazor Hybrid apps.
+      Implements Authorization Code + PKCE via WebAuthenticator,
+      silent token refresh, SecureStorage persistence, and Blazor
+      AuthenticationStateProvider integration.
+    </Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.41" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.*" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.*" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Templates.Core.Authentication\Templates.Core.Authentication.csproj" />
+  </ItemGroup>
+
+</Project>
