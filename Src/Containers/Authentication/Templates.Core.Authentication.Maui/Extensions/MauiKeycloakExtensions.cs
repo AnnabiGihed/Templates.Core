@@ -38,12 +38,6 @@ public static class MauiKeycloakExtensions
 
 	/// <summary>
 	/// Adds the <see cref="KeycloakAuthorizationMessageHandler"/> to an <see cref="IHttpClientBuilder"/>.
-	///
-	/// Usage:
-	/// <code>
-	///   services.AddHttpClient("CurviaApi", c => c.BaseAddress = new Uri("https://api.curvia.app"))
-	///           .AddKeycloakHandler();
-	/// </code>
 	/// </summary>
 	public static IHttpClientBuilder AddKeycloakHandler(this IHttpClientBuilder builder)
 	{

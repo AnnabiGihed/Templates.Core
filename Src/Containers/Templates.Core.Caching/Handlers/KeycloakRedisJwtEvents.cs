@@ -1,7 +1,6 @@
 ﻿using System.Text.Json;
 using System.Security.Claims;
 using Microsoft.Extensions.Logging;
-using System.IdentityModel.Tokens.Jwt;
 using Templates.Core.Caching.Abstractions;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -10,7 +9,7 @@ namespace Templates.Core.Caching.Handlers;
 
 /// <summary>
 /// Author      : Gihed Annabi
-/// Date        : 01-2026
+/// Date        : 02-2026
 /// Purpose     : Plugs Redis token caching and revocation checking into the Keycloak JWT bearer pipeline.
 /// </summary>
 public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
@@ -33,12 +32,15 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 	#region Overrides
 	public override async Task TokenValidated(TokenValidatedContext context)
 	{
-		var accessToken = context.Request.Headers.Authorization
-			.ToString()
-			.Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase)
-			.Trim();
+		var accessToken = context.SecurityToken is JsonWebToken jwt
+			? jwt.EncodedToken
+			: context.Request.Headers.Authorization
+				.ToString()
+				.Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase)
+				.Trim();
 
-		if (string.IsNullOrEmpty(accessToken)) return;
+		if (string.IsNullOrEmpty(accessToken)) 
+			return;
 
 		var (subjectStr, issuedAt, expiresAt, rawClaims) = ExtractTokenInfo(context.SecurityToken);
 
@@ -52,10 +54,10 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 		#endregion
 
 		#region 2. Global user revocation check
-		if (subjectStr is not null && issuedAt is not null
-			&& Guid.TryParse(subjectStr, out var subjectGuid))
+		if (subjectStr is not null && issuedAt is not null && Guid.TryParse(subjectStr, out var subjectGuid))
 		{
-			if (await _revocationCache.IsIssuedBeforeRevocationAsync(subjectGuid, issuedAt.Value, context.HttpContext.RequestAborted))
+			if (await _revocationCache.IsIssuedBeforeRevocationAsync(
+					subjectGuid, issuedAt.Value, context.HttpContext.RequestAborted))
 			{
 				_logger.LogWarning("Rejected globally-revoked token for user {Sub}", subjectStr);
 				context.Fail("All tokens for this user have been revoked.");
@@ -86,18 +88,23 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 
 		if (expiresAt is not null && subjectStr is not null)
 		{
+			var allClaims = (rawClaims ?? claimsIdentity.Claims)
+				.GroupBy(c => c.Type)
+				.ToDictionary(g => g.Key, g => g.Select(c => c.Value).ToList());
+
 			var claimsToCache = new CachedTokenClaims
 			{
 				UserId = subjectStr,
 				Username = claimsIdentity.FindFirst("preferred_username")?.Value ?? string.Empty,
 				Roles = claimsIdentity.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToList(),
 				Email = claimsIdentity.FindFirst("email")?.Value ?? claimsIdentity.FindFirst(ClaimTypes.Email)?.Value ?? string.Empty,
-				AllClaims = rawClaims?.GroupBy(c => c.Type).ToDictionary(g => g.Key, g => g.First().Value) ?? claimsIdentity.Claims.GroupBy(c => c.Type).ToDictionary(g => g.Key, g => g.First().Value),
+				AllClaims = allClaims
 			};
 
 			await _tokenCache.SetClaimsAsync(accessToken, claimsToCache, expiresAt.Value, context.HttpContext.RequestAborted);
 
-			_logger.LogDebug("Token claims for user {UserId} written to Redis cache. Roles: [{Roles}]", subjectStr, string.Join(", ", claimsToCache.Roles));
+			_logger.LogDebug("Token claims for user {UserId} written to Redis. Roles: [{Roles}]",
+				subjectStr, string.Join(", ", claimsToCache.Roles));
 		}
 		else
 		{
@@ -107,53 +114,33 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 	}
 	#endregion
 
-	#region Token info extraction (handles both JwtSecurityToken and JsonWebToken)
+	#region Token info extraction
 	/// <summary>
-	/// Extracts subject, issuedAt, expiresAt and raw claims from either
-	/// <see cref="JwtSecurityToken"/> (.NET 6/7, or explicit handler override) or
+	/// Extracts subject, issuedAt, expiresAt and raw claims from a
 	/// <see cref="JsonWebToken"/> (.NET 8+ default from JsonWebTokenHandler).
-	/// Returns nulls for metadata if the token type is unknown.
 	/// </summary>
 	private static (string? subject, DateTimeOffset? issuedAt, DateTimeOffset? expiresAt, IEnumerable<Claim>? rawClaims)
 		ExtractTokenInfo(Microsoft.IdentityModel.Tokens.SecurityToken? securityToken)
 	{
-		if (securityToken is JwtSecurityToken jst)
+		if (securityToken is not JsonWebToken jwt)
+			return (null, null, null, null);
+
+		DateTimeOffset? iat = jwt.IssuedAt == DateTime.MinValue ? null : new DateTimeOffset(jwt.IssuedAt, TimeSpan.Zero);
+
+		DateTimeOffset? exp = jwt.ValidTo == DateTime.MinValue ? null : new DateTimeOffset(jwt.ValidTo, TimeSpan.Zero);
+
+		var claims = new List<Claim>();
+		try
 		{
-			DateTimeOffset? iat = null;
-			var iatClaim = jst.Claims.FirstOrDefault(c => c.Type == "iat");
-			if (iatClaim is not null && long.TryParse(iatClaim.Value, out var iatUnix))
-				iat = DateTimeOffset.FromUnixTimeSeconds(iatUnix);
-
-			var expClaim = jst.Claims.FirstOrDefault(c => c.Type == "exp");
-			DateTimeOffset? exp = expClaim is not null && long.TryParse(expClaim.Value, out var expUnix) ? DateTimeOffset.FromUnixTimeSeconds(expUnix) : null;
-
-			return (jst.Subject, iat, exp, jst.Claims);
+			foreach (var claim in jwt.Claims)
+				claims.Add(claim);
+		}
+		catch (Exception ex)
+		{
+			System.Diagnostics.Debug.WriteLine($"KeycloakRedisJwtEvents: failed to enumerate claims: {ex.Message}");
 		}
 
-		if (securityToken is JsonWebToken jwt)
-		{
-			DateTimeOffset? iat = jwt.IssuedAt == DateTime.MinValue ? null : new DateTimeOffset(jwt.IssuedAt, TimeSpan.Zero);
-
-			DateTimeOffset? exp = jwt.ValidTo == DateTime.MinValue ? null : new DateTimeOffset(jwt.ValidTo, TimeSpan.Zero);
-
-			var claims = new List<Claim>();
-			try
-			{
-				using var doc = JsonDocument.Parse(jwt.EncodedPayload
-					.Replace('-', '+').Replace('_', '/')
-					.PadRight(jwt.EncodedPayload.Length + (4 - jwt.EncodedPayload.Length % 4) % 4, '=') is var padded ? Convert.FromBase64String(padded) is var bytes ? System.Text.Encoding.UTF8.GetString(bytes) : "{}" : "{}");
-
-				foreach (var property in doc.RootElement.EnumerateObject())
-					claims.Add(new Claim(property.Name, property.Value.ToString()));
-			}
-			catch 
-			{
-			}
-
-			return (jwt.Subject, iat, exp, claims);
-		}
-
-		return (null, null, null, null);
+		return (jwt.Subject, iat, exp, claims);
 	}
 	#endregion
 
@@ -171,9 +158,7 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 						if (r.GetString() is { } rv)
 							identity.AddClaim(new Claim(ClaimTypes.Role, rv));
 			}
-			catch 
-			{
-			}
+			catch (JsonException) { }
 		}
 
 		var resourceClaim = identity.FindFirst("resource_access");
@@ -188,14 +173,16 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 							if (r.GetString() is { } rv)
 								identity.AddClaim(new Claim(ClaimTypes.Role, rv));
 			}
-			catch 
-			{
-			}
+			catch (JsonException) { }
 		}
 	}
 	#endregion
 
 	#region Claims rebuild from cache
+	/// <summary>
+	/// Rebuilds a <see cref="Claim"/> list from a cached snapshot.
+	/// Emits all values for multi-value claim types so no data is lost.
+	/// </summary>
 	private static List<Claim> RebuildClaims(CachedTokenClaims cached)
 	{
 		var claims = new List<Claim>
@@ -208,9 +195,18 @@ public sealed class KeycloakRedisJwtEvents : JwtBearerEvents
 
 		claims.AddRange(cached.Roles.Select(r => new Claim(ClaimTypes.Role, r)));
 
-		foreach (var (key, value) in cached.AllClaims)
-			if (!claims.Exists(c => c.Type == key))
-				claims.Add(new Claim(key, value));
+		var alreadyEmitted = new HashSet<string>
+		{
+			ClaimTypes.NameIdentifier, "sub", "preferred_username", ClaimTypes.Email
+		};
+
+		foreach (var (type, values) in cached.AllClaims)
+		{
+			if (alreadyEmitted.Contains(type)) continue;
+
+			foreach (var value in values)
+				claims.Add(new Claim(type, value));
+		}
 
 		return claims;
 	}

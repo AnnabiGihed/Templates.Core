@@ -12,14 +12,21 @@ namespace Templates.Core.Authentication.Responses;
 public sealed class KeycloakTokenResponse
 {
 	#region Properties
-	[JsonPropertyName("id_token")]
-	public string? IdToken { get; init; }
-
 	[JsonPropertyName("expires_in")]
 	public int ExpiresIn { get; init; }
 
+	[JsonPropertyName("id_token")]
+	public string? IdToken { get; init; }
+
 	[JsonPropertyName("refresh_token")]
 	public string? RefreshToken { get; init; }
+
+	/// <summary>
+	/// Seconds until the refresh token itself expires.
+	/// Keycloak omits this field (or sets it to 0) for offline_access tokens that never expire.
+	/// </summary>
+	[JsonPropertyName("refresh_expires_in")]
+	public int RefreshExpiresIn { get; init; }
 
 	[JsonPropertyName("access_token")]
 	public string AccessToken { get; init; } = string.Empty;

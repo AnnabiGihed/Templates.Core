@@ -26,8 +26,8 @@ public sealed class CachedTokenClaims
 	public List<string> Roles { get; init; } = [];
 
 	/// <summary>
-	/// All raw claims as key→value pairs for full fidelity rebuild.
+	/// All raw claims as type → list-of-values to preserve multi-value claims.
 	/// </summary>
-	public Dictionary<string, string> AllClaims { get; init; } = [];
+	public Dictionary<string, List<string>> AllClaims { get; init; } = [];
 	#endregion
 }

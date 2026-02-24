@@ -5,11 +5,14 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System.IdentityModel.Tokens.Jwt;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.IdentityModel.Protocols;
 using Templates.Core.Authentication.Events;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Templates.Core.Authentication.Storage;
 using Templates.Core.Authentication.Services;
 using Templates.Core.Authentication.Responses;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 namespace Templates.Core.Authentication.Maui.Services;
 
@@ -17,12 +20,14 @@ namespace Templates.Core.Authentication.Maui.Services;
 /// Author      : Gihed Annabi
 /// Date        : 02-2026
 /// Purpose     : Full Keycloak authentication service for .NET MAUI Blazor Hybrid.
-///              Implements Authorization Code + PKCE using <see cref="WebAuthenticator"/> and provides:
+///              Implements Authorization Code + PKCE via <see cref="WebAuthenticator"/> and provides:
 ///              - Login (browser redirect → code exchange)
-///              - Silent refresh via refresh_token grant
+///              - Silent and forced refresh via refresh_token grant
+///              - Cryptographic JWT validation against Keycloak's JWKS endpoint
 ///              - Secure token persistence in OS secure storage
 ///              - Logout (revoke + end-session)
-///              - Claims extraction from the access token
+///              - Claims extraction from the validated access token
+///              - Nonce validation for replay protection
 /// </summary>
 public sealed class KeycloakAuthService : IKeycloakAuthService
 {
@@ -37,13 +42,17 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 	private ClaimsPrincipal? _user;
 	private KeycloakTokenSet? _current;
 	private readonly SemaphoreSlim _refreshLock = new(1, 1);
+
+	/// <summary>
+	/// Cached OIDC configuration including the JWKS signing keys.
+	/// </summary>
+	private OpenIdConnectConfiguration? _oidcConfig;
+	private readonly SemaphoreSlim _oidcLock = new(1, 1);
 	#endregion
 
 	#region Public API
 	public ClaimsPrincipal? User => _user;
-
 	public event EventHandler<AuthStateChangedEventArgs>? AuthStateChanged;
-
 	public bool IsAuthenticated => _current is not null && !_current.IsExpired;
 	#endregion
 
@@ -64,39 +73,40 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 	{
 		try
 		{
-			#region Generate PKCE pair
 			var (codeVerifier, codeChallenge) = GeneratePkce();
-			#endregion
-
-			#region Build the authorization URL
 			var state = GenerateState();
+			var nonce = GenerateState();
 			var redirectUri = $"{_options.ClientId}://callback";
 
-			var authUrl = new Uri(BuildAuthUrl(codeChallenge, state, redirectUri));
-			#endregion
+			var authUrl = new Uri(BuildAuthUrl(codeChallenge, state, nonce, redirectUri));
 
-			#region Launch system browser and wait for callback
-			var result = await WebAuthenticator.Default.AuthenticateAsync(
-				new WebAuthenticatorOptions
-				{
-					Url = authUrl,
-					CallbackUrl = new Uri(redirectUri),
-					PrefersEphemeralWebBrowserSession = false
-				});
+			var result = await WebAuthenticator.Default.AuthenticateAsync(new WebAuthenticatorOptions
+			{
+				Url = authUrl,
+				CallbackUrl = new Uri(redirectUri),
+				PrefersEphemeralWebBrowserSession = false
+			});
 
 			if (result is null || !result.Properties.TryGetValue("code", out var code))
 			{
 				_logger.LogWarning("Keycloak: authorization was cancelled or returned no code.");
 				return false;
 			}
-			#endregion
 
-			#region Exchange authorization code for tokens
+			if (!result.Properties.TryGetValue("state", out var returnedState) || returnedState != state)
+			{
+				_logger.LogWarning("Keycloak: OAuth2 state mismatch — possible CSRF.");
+				return false;
+			}
+
 			var tokens = await ExchangeCodeAsync(code, codeVerifier, redirectUri, ct);
+
+			if (tokens.IdToken is not null)
+				await ValidateNonceInIdTokenAsync(tokens.IdToken, nonce, ct);
+
 			await PersistAndNotify(tokens, ct);
 
 			_logger.LogInformation("Keycloak: user {Username} logged in.", _user?.FindFirst("preferred_username")?.Value);
-			#endregion
 
 			return true;
 		}
@@ -126,10 +136,7 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 
 		if (current?.RefreshToken is not null)
 		{
-			try
-			{
-				await RevokeTokenAsync(current.RefreshToken, ct);
-			}
+			try { await RevokeTokenAsync(current.RefreshToken, ct); }
 			catch (Exception ex)
 			{
 				_logger.LogWarning(ex, "Keycloak: failed to revoke refresh token (ignored).");
@@ -140,9 +147,7 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 		{
 			try
 			{
-				var endSessionUrl = $"{_options.LogoutUrl}"
-					+ $"?id_token_hint={Uri.EscapeDataString(current.IdToken)}"
-					+ $"&post_logout_redirect_uri={Uri.EscapeDataString($"{_options.ClientId}://loggedout")}";
+				var endSessionUrl = $"{_options.LogoutUrl}" + $"?id_token_hint={Uri.EscapeDataString(current.IdToken)}" + $"&post_logout_redirect_uri={Uri.EscapeDataString($"{_options.ClientId}://loggedout")}";
 
 				await Browser.Default.OpenAsync(endSessionUrl, BrowserLaunchMode.SystemPreferred);
 			}
@@ -156,7 +161,16 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 	}
 	#endregion
 
-	#region Get access token (with silent refresh)
+	#region Get / force refresh access token
+	/// <inheritdoc />
+	public async Task<string> ForceRefreshAsync(CancellationToken ct = default)
+	{
+		if (_current?.RefreshToken is null || !_current.CanRefresh)
+			throw new UnauthorizedAccessException("No valid refresh token available.");
+
+		return await RefreshInternalAsync(force: true, ct);
+	}
+
 	/// <inheritdoc />
 	public async Task<string> GetAccessTokenAsync(CancellationToken ct = default)
 	{
@@ -169,7 +183,7 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 		if (!_current.CanRefresh)
 			throw new UnauthorizedAccessException("Session expired. Please log in again.");
 
-		return await RefreshSilentlyAsync(ct);
+		return await RefreshInternalAsync(force: false, ct);
 	}
 	#endregion
 
@@ -193,12 +207,12 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 			if (stored.CanRefresh)
 			{
 				_current = stored;
-				await RefreshSilentlyAsync(ct);
+				await RefreshInternalAsync(force: true, ct);
 				_logger.LogInformation("Keycloak: session refreshed on restore.");
 				return true;
 			}
 
-			_logger.LogInformation("Keycloak: stored session expired and has no refresh token.");
+			_logger.LogInformation("Keycloak: stored session expired and refresh token is gone or expired.");
 			await _storage.ClearAsync(ct);
 			return false;
 		}
@@ -210,22 +224,21 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 	}
 	#endregion
 
-	#region Internal helpers
+	#region Internal refresh
 	private void NotifyAuthStateChanged(bool isAuthenticated)
 	{
 		AuthStateChanged?.Invoke(this, new AuthStateChangedEventArgs(isAuthenticated, _user));
 	}
-
-	private async Task<string> RefreshSilentlyAsync(CancellationToken ct)
+	private async Task<string> RefreshInternalAsync(bool force, CancellationToken ct)
 	{
 		await _refreshLock.WaitAsync(ct);
 		try
 		{
-			if (_current is not null && !_current.IsExpired)
+			if (!force && _current is not null && !_current.IsExpired)
 				return _current.AccessToken;
 
-			if (_current?.RefreshToken is null)
-				throw new UnauthorizedAccessException("No refresh token available.");
+			if (_current?.RefreshToken is null || !_current.CanRefresh)
+				throw new UnauthorizedAccessException("No valid refresh token available.");
 
 			var tokens = await RefreshTokenGrantAsync(_current.RefreshToken, ct);
 			await PersistAndNotify(tokens, ct);
@@ -236,11 +249,10 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 			_refreshLock.Release();
 		}
 	}
-
 	private async Task PersistAndNotify(KeycloakTokenSet tokens, CancellationToken ct)
 	{
+		_user = await ValidateAndParseAccessTokenAsync(tokens.AccessToken, ct);
 		_current = tokens;
-		_user = ParseUserFromToken(tokens.AccessToken);
 		await _storage.SaveAsync(tokens, ct);
 		NotifyAuthStateChanged(isAuthenticated: true);
 	}
@@ -256,11 +268,9 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 			["token_type_hint"] = "refresh_token"
 		});
 
-		var revokeUrl = $"{_options.IssuerUrl}/protocol/openid-connect/revoke";
-		await _http.PostAsync(revokeUrl, body, ct);
+		await _http.PostAsync($"{_options.IssuerUrl}/protocol/openid-connect/revoke", body, ct);
 	}
-
-	private async Task<KeycloakTokenSet> RefreshTokenGrantAsync(string refreshToken, CancellationToken ct)
+	private Task<KeycloakTokenSet> RefreshTokenGrantAsync(string refreshToken, CancellationToken ct)
 	{
 		var body = new FormUrlEncodedContent(new Dictionary<string, string>
 		{
@@ -269,9 +279,8 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 			["client_id"] = _options.ClientId
 		});
 
-		return await PostToTokenEndpointAsync(body, ct);
+		return PostToTokenEndpointAsync(body, ct);
 	}
-
 	private async Task<KeycloakTokenSet> PostToTokenEndpointAsync(FormUrlEncodedContent body, CancellationToken ct)
 	{
 		var response = await _http.PostAsync(_options.TokenUrl, body, ct);
@@ -282,19 +291,20 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 			throw new InvalidOperationException($"Keycloak token endpoint returned {response.StatusCode}: {error}");
 		}
 
-		var json = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>(cancellationToken: ct)
-			?? throw new InvalidOperationException("Keycloak returned an empty token response.");
+		var json = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>(cancellationToken: ct) ?? throw new InvalidOperationException("Keycloak returned an empty token response.");
+
+		DateTimeOffset? refreshExpiresAt = json.RefreshExpiresIn > 0 ? DateTimeOffset.UtcNow.AddSeconds(json.RefreshExpiresIn) : null;
 
 		return new KeycloakTokenSet
 		{
 			IdToken = json.IdToken,
 			AccessToken = json.AccessToken,
 			RefreshToken = json.RefreshToken,
-			ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(json.ExpiresIn)
+			ExpiresAt = DateTimeOffset.UtcNow.AddSeconds(json.ExpiresIn),
+			RefreshTokenExpiresAt = refreshExpiresAt
 		};
 	}
-
-	private async Task<KeycloakTokenSet> ExchangeCodeAsync(string code, string codeVerifier, string redirectUri, CancellationToken ct)
+	private Task<KeycloakTokenSet> ExchangeCodeAsync(string code, string codeVerifier, string redirectUri, CancellationToken ct)
 	{
 		var body = new FormUrlEncodedContent(new Dictionary<string, string>
 		{
@@ -305,24 +315,174 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 			["grant_type"] = "authorization_code"
 		});
 
-		return await PostToTokenEndpointAsync(body, ct);
+		return PostToTokenEndpointAsync(body, ct);
 	}
 	#endregion
 
-	#region PKCE helpers
+	#region Cryptographic JWT validation
+	/// <summary>
+	/// Lazily fetches and caches the Keycloak OIDC configuration (including JWKS).
+	/// Refresh is triggered at most once per concurrent call group.
+	/// </summary>
+	private async Task<OpenIdConnectConfiguration> GetOidcConfigurationAsync(CancellationToken ct)
+	{
+		if (_oidcConfig is not null)
+			return _oidcConfig;
+
+		await _oidcLock.WaitAsync(ct);
+		try
+		{
+			if (_oidcConfig is not null)
+				return _oidcConfig;
+
+			var retriever = new OpenIdConnectConfigurationRetriever();
+			var docRetriever = new HttpDocumentRetriever(_http)
+			{
+				RequireHttps = _options.RequireHttpsMetadata
+			};
+
+			_oidcConfig = await OpenIdConnectConfigurationRetriever.GetAsync(_options.MetadataUrl, docRetriever, ct);
+
+			_logger.LogDebug("Keycloak OIDC configuration loaded. Keys: {Count}", _oidcConfig.SigningKeys.Count());
+		}
+		finally
+		{
+			_oidcLock.Release();
+		}
+
+		return _oidcConfig;
+	}
+
+	/// <summary>
+	/// Validates the nonce claim inside the ID token to prevent replay attacks.
+	/// Does NOT re-validate the full ID token signature here (the access token
+	/// validation above already proved the token endpoint is authentic).
+	/// </summary>
+	private async Task ValidateNonceInIdTokenAsync(string idToken, string expectedNonce, CancellationToken ct)
+	{
+		var config = await GetOidcConfigurationAsync(ct);
+
+		var parameters = new TokenValidationParameters
+		{
+			ValidateIssuer = true,
+			ValidateAudience = true,
+			ValidateLifetime = true,
+			ValidIssuer = _options.IssuerUrl,
+			ValidAudience = _options.ClientId,
+			ClockSkew = TimeSpan.FromSeconds(30),
+			IssuerSigningKeys = config.SigningKeys
+		};
+
+		var handler = new JsonWebTokenHandler();
+		var result = await handler.ValidateTokenAsync(idToken, parameters);
+
+		if (!result.IsValid)
+		{
+			_logger.LogWarning(
+				result.Exception, "Keycloak: ID token signature validation failed.");
+			throw new SecurityTokenValidationException("ID token failed cryptographic validation.", result.Exception);
+		}
+
+		if (!result.Claims.TryGetValue("nonce", out var actualNonce) || actualNonce?.ToString() != expectedNonce)
+		{
+			_logger.LogWarning("Keycloak: ID token nonce mismatch — possible replay attack.");
+			throw new SecurityTokenValidationException("ID token nonce validation failed.");
+		}
+	}
+
+	/// <summary>
+	/// Fetches (and caches) Keycloak's OIDC discovery document and JWKS signing keys,
+	/// then validates the access token's signature, issuer, audience, and lifetime.
+	/// Returns a <see cref="ClaimsPrincipal"/> with flattened realm + client roles.
+	/// </summary>
+	private async Task<ClaimsPrincipal> ValidateAndParseAccessTokenAsync(string accessToken, CancellationToken ct)
+	{
+		var config = await GetOidcConfigurationAsync(ct);
+
+		var parameters = new TokenValidationParameters
+		{
+			ValidateIssuer = true,
+			ValidateLifetime = true,
+			RoleClaimType = ClaimTypes.Role,
+			ValidIssuer = _options.IssuerUrl,
+			ValidAudience = _options.Audience,
+			ClockSkew = TimeSpan.FromSeconds(30),
+			NameClaimType = "preferred_username",
+			IssuerSigningKeys = config.SigningKeys,
+			ValidateAudience = !string.IsNullOrEmpty(_options.Audience)
+		};
+
+		var handler = new JsonWebTokenHandler();
+
+		var result = await handler.ValidateTokenAsync(accessToken, parameters);
+
+		if (!result.IsValid)
+		{
+			_logger.LogError(result.Exception, "Keycloak: access token signature validation failed.");
+			throw new SecurityTokenValidationException("Access token failed cryptographic validation.", result.Exception);
+		}
+
+		var claims = result.ClaimsIdentity.Claims.ToList();
+		var identity = new ClaimsIdentity(claims, "keycloak", "preferred_username", ClaimTypes.Role);
+
+		FlattenKeycloakRoles(identity);
+
+		return new ClaimsPrincipal(identity);
+	}
+	#endregion
+
+	#region Keycloak role flattening
+	/// <summary>
+	/// Copies realm_access.roles and resource_access.*.roles into standard
+	/// <see cref="ClaimTypes.Role"/> claims so [Authorize(Roles = "...")] works.
+	/// </summary>
+	private static void FlattenKeycloakRoles(ClaimsIdentity identity)
+	{
+		var realmClaim = identity.FindFirst("realm_access");
+		if (realmClaim is not null)
+		{
+			try
+			{
+				using var doc = JsonDocument.Parse(realmClaim.Value);
+				if (doc.RootElement.TryGetProperty("roles", out var roles))
+					foreach (var r in roles.EnumerateArray())
+						if (r.GetString() is { } rv)
+							identity.AddClaim(new Claim(ClaimTypes.Role, rv));
+			}
+			catch 
+			{
+			}
+		}
+
+		var resourceClaim = identity.FindFirst("resource_access");
+		if (resourceClaim is not null)
+		{
+			try
+			{
+				using var doc = JsonDocument.Parse(resourceClaim.Value);
+				foreach (var client in doc.RootElement.EnumerateObject())
+					if (client.Value.TryGetProperty("roles", out var roles))
+						foreach (var r in roles.EnumerateArray())
+							if (r.GetString() is { } rv)
+								identity.AddClaim(new Claim(ClaimTypes.Role, rv));
+			}
+			catch 
+			{
+			}
+		}
+	}
+	#endregion
+
+	#region PKCE + state helpers
 	private static string GenerateState()
 	{
 		return Base64UrlEncode(RandomNumberGenerator.GetBytes(16));
 	}
-
 	private static string Base64UrlEncode(byte[] input)
 	{
 		return Convert.ToBase64String(input)
-			.TrimEnd('=')
-			.Replace('+', '-')
-			.Replace('/', '_');
+				.TrimEnd('=').Replace('+', '-').Replace('/', '_');
 	}
-
 	private static (string verifier, string challenge) GeneratePkce()
 	{
 		var bytes = RandomNumberGenerator.GetBytes(32);
@@ -334,56 +494,18 @@ public sealed class KeycloakAuthService : IKeycloakAuthService
 	#endregion
 
 	#region Auth URL builder
-	private string BuildAuthUrl(string codeChallenge, string state, string redirectUri)
+	private string BuildAuthUrl(string codeChallenge, string state, string nonce, string redirectUri)
 	{
 		var scopes = Uri.EscapeDataString(_options.Scopes);
-		return $"{_options.AuthorizationUrl}" +
-			   $"?client_id={Uri.EscapeDataString(_options.ClientId)}" +
-			   $"&response_type=code" +
-			   $"&scope={scopes}" +
-			   $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
-			   $"&state={state}" +
-			   $"&code_challenge={codeChallenge}" +
-			   $"&code_challenge_method=S256";
-	}
-	#endregion
-
-	#region JWT claims parsing
-	private static ClaimsPrincipal ParseUserFromToken(string accessToken)
-	{
-		try
-		{
-			var handler = new JwtSecurityTokenHandler();
-			if (!handler.CanReadToken(accessToken))
-				return new ClaimsPrincipal();
-
-			var jwt = handler.ReadJwtToken(accessToken);
-			var claims = new List<Claim>(jwt.Claims);
-
-			// Flatten realm roles
-			var realmRolesClaim = jwt.Claims.FirstOrDefault(c => c.Type == "realm_access");
-			if (realmRolesClaim is not null)
-			{
-				try
-				{
-					using var doc = JsonDocument.Parse(realmRolesClaim.Value);
-					if (doc.RootElement.TryGetProperty("roles", out var roles))
-						foreach (var r in roles.EnumerateArray())
-							if (r.GetString() is { } rv)
-								claims.Add(new Claim(ClaimTypes.Role, rv));
-				}
-				catch
-				{
-				}
-			}
-
-			var identity = new ClaimsIdentity(claims, "keycloak", "preferred_username", ClaimTypes.Role);
-			return new ClaimsPrincipal(identity);
-		}
-		catch
-		{
-			return new ClaimsPrincipal();
-		}
+		return $"{_options.AuthorizationUrl}"
+			 + $"?client_id={Uri.EscapeDataString(_options.ClientId)}"
+			 + $"&response_type=code"
+			 + $"&scope={scopes}"
+			 + $"&redirect_uri={Uri.EscapeDataString(redirectUri)}"
+			 + $"&state={state}"
+			 + $"&nonce={nonce}"
+			 + $"&code_challenge={codeChallenge}"
+			 + $"&code_challenge_method=S256";
 	}
 	#endregion
 }
