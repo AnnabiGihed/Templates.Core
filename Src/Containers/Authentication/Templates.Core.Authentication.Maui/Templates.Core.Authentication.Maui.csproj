@@ -17,7 +17,6 @@
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/AnnabiGihed/Templates.Core</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>keycloak;authentication;maui;blazor-hybrid;jwt;pkce;secure-storage</PackageTags>
     <Description>
       Keycloak OIDC authentication for .NET MAUI Blazor Hybrid apps.

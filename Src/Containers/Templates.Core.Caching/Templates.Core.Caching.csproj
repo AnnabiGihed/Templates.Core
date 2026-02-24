@@ -16,7 +16,6 @@
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/AnnabiGihed/Templates.Core</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>redis;keycloak;cache;jwt;authentication;aspnetcore;token-revocation</PackageTags>
     <Description>
       Redis-backed JWT token caching and revocation for Templates.Core backend APIs.
