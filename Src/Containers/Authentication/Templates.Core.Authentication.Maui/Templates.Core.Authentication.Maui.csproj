@@ -6,16 +6,25 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <SingleProject>true</SingleProject>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
-    <!-- NuGet package metadata -->
     <PackageId>Templates.Core.Authentication.Maui</PackageId>
     <Version>1.0.0</Version>
-    <Authors>Templates.Core</Authors>
+    <Authors>Gihed Annabi</Authors>
+    <Company>Gihed Annabi</Company>
+    <Copyright>Copyright © 2026 Pivot Softwares</Copyright>
+    <RepositoryUrl>https://github.com/AnnabiGihed/Templates.Core</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/AnnabiGihed/Templates.Core</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>keycloak;authentication;maui;blazor-hybrid;jwt;pkce;secure-storage</PackageTags>
     <Description>
       Keycloak OIDC authentication for .NET MAUI Blazor Hybrid apps.
-      Implements Authorization Code + PKCE via WebAuthenticator,
-      silent token refresh, SecureStorage persistence, and Blazor
-      AuthenticationStateProvider integration.
+      Implements Authorization Code + PKCE via WebAuthenticator with full JWT signature
+      validation against Keycloak's JWKS endpoint, nonce replay protection, silent token
+      refresh, SecureStorage persistence, realm and client role flattening, forced-refresh
+      401 retry, and Blazor AuthenticationStateProvider integration.
     </Description>
   </PropertyGroup>
 

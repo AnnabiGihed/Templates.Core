@@ -5,17 +5,25 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
-    <!-- NuGet package metadata -->
     <PackageId>Templates.Core.Authentication</PackageId>
     <Version>1.0.0</Version>
-    <Authors>Templates.Core</Authors>
+    <Authors>Gihed Annabi</Authors>
+    <Company>Gihed Annabi</Company>
+    <Copyright>Copyright © 2026 Pivot Softwares</Copyright>
+    <RepositoryUrl>https://github.com/AnnabiGihed/Templates.Core</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/AnnabiGihed/Templates.Core</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>keycloak;authentication;jwt;pkce;aspnetcore</PackageTags>
     <Description>
-      Plug-and-play Keycloak JWT authentication for ASP.NET Core backends.
-      Includes JWT bearer setup, Swagger OAuth2 PKCE, claims transformation,
-      and ICurrentUser injection.
+      Shared Keycloak authentication contracts and models for Templates.Core.
+      Provides KeycloakOptions, KeycloakTokenSet, IKeycloakAuthService, IKeycloakTokenStorage,
+      KeycloakAuthorizationMessageHandler and supporting types used by all platform-specific
+      authentication packages (AspNetCore, Blazor, MAUI).
     </Description>
-    <PackageTags>keycloak;authentication;jwt;swagger;aspnetcore</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

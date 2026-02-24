@@ -5,18 +5,27 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
     <PackageId>Templates.Core.Caching</PackageId>
     <Version>1.0.0</Version>
-    <Authors>Templates.Core</Authors>
+    <Authors>Gihed Annabi</Authors>
+    <Company>Gihed Annabi</Company>
+    <Copyright>Copyright © 2026 Pivot Softwares</Copyright>
+    <RepositoryUrl>https://github.com/AnnabiGihed/Templates.Core</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/AnnabiGihed/Templates.Core</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>redis;keycloak;cache;jwt;authentication;aspnetcore;token-revocation</PackageTags>
     <Description>
-      Redis integration for Templates.Core. Provides:
-      - IDistributedTokenCache (cache validated JWT claims → skip repeated parsing)
-      - ITokenRevocationCache  (blacklist tokens on logout before expiry)
-      - ICacheService          (generic typed distributed cache)
-      - KeycloakRedisJwtEvents (plug into AddJwtBearer to wire it all together)
+      Redis-backed JWT token caching and revocation for Templates.Core backend APIs.
+      Provides IDistributedTokenCache (cache validated JWT claims to skip repeated parsing),
+      ITokenRevocationCache (per-token and global user blacklisting on logout),
+      ICacheService (generic typed distributed cache), KeycloakRedisJwtEvents (wires
+      Redis caching and revocation into the JwtBearer pipeline), and configurable
+      TokenRevocationOptions for TTL management.
     </Description>
-    <PackageTags>redis;keycloak;cache;jwt;authentication;aspnetcore</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
