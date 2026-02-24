@@ -626,7 +626,7 @@ public sealed class KeycloakAuthService : IBlazorKeycloakAuthService
 	#region URL builders
 	private string BuildCallbackUri()
 	{
-		return $"{_nav.BaseUri.TrimEnd('/')}auth/callback";
+		return $"{_nav.BaseUri.TrimEnd('/')}/auth/callback";
 	}
 	private string BuildAuthUrl(string codeChallenge, string state, string nonce, string redirectUri)
 	{
