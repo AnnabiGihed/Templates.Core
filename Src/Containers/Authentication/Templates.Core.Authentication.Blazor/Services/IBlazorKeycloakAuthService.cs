@@ -18,10 +18,15 @@ public interface IBlazorKeycloakAuthService : IKeycloakAuthService
 
 	/// <summary>
 	/// Exchanges the authorization code returned by Keycloak at the /auth/callback page.
+	/// Returns the URL to redirect to after a successful login (the page the user was on
+	/// when they triggered login), or null on failure.
 	/// </summary>
 	/// <param name="code">The authorization code from the query string.</param>
 	/// <param name="returnedState">The state parameter from the query string (for CSRF validation).</param>
 	/// <param name="ct">Cancellation token.</param>
-	/// <returns><c>true</c> on success; <c>false</c> on state mismatch, nonce failure, or exchange error.</returns>
-	Task<bool> HandleCallbackAsync(string code, string returnedState, CancellationToken ct = default);
+	/// <returns>
+	/// The return URL on success (e.g. "/dashboard"), or <c>null</c> on failure
+	/// (state mismatch, nonce failure, token exchange error, etc.).
+	/// </returns>
+	Task<string?> HandleCallbackAsync(string code, string returnedState, CancellationToken ct = default);
 }

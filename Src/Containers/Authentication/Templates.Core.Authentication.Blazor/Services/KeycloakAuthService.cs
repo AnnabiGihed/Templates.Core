@@ -124,7 +124,7 @@ public sealed class KeycloakAuthService : IBlazorKeycloakAuthService
 
 	#region Callback — exchange code, validate, persist
 	/// <inheritdoc />
-	public async Task<bool> HandleCallbackAsync(string code, string returnedState, CancellationToken ct = default)
+	public async Task<string?> HandleCallbackAsync(string code, string returnedState, CancellationToken ct = default)
 	{
 		try
 		{
@@ -132,7 +132,7 @@ public sealed class KeycloakAuthService : IBlazorKeycloakAuthService
 			if (lastDot < 0)
 			{
 				_logger.LogWarning("Keycloak: malformed state — missing session ID segment.");
-				return false;
+				return null;
 			}
 
 			var oauthState = returnedState[..lastDot];
@@ -141,29 +141,32 @@ public sealed class KeycloakAuthService : IBlazorKeycloakAuthService
 			if (string.IsNullOrEmpty(sessionId))
 			{
 				_logger.LogWarning("Keycloak: session ID segment in state is empty.");
-				return false;
+				return null;
 			}
 
 			var flowSession = await _sessionStore.GetAsync(sessionId, ct);
 			if (flowSession is null)
 			{
 				_logger.LogWarning("Keycloak: callback session not found in Redis (expired or tampered).");
-				return false;
+				return null;
 			}
 
 			if (string.IsNullOrEmpty(flowSession.OAuthState) || flowSession.OAuthState != oauthState)
 			{
 				_logger.LogWarning("Keycloak: OAuth2 state mismatch — possible CSRF attack.");
 				await _sessionStore.RemoveAsync(sessionId, ct);
-				return false;
+				return null;
 			}
 
 			if (string.IsNullOrEmpty(flowSession.PkceVerifier) || string.IsNullOrEmpty(flowSession.Nonce))
 			{
 				_logger.LogWarning("Keycloak: PKCE verifier or nonce missing from session.");
 				await _sessionStore.RemoveAsync(sessionId, ct);
-				return false;
+				return null;
 			}
+
+			// Capture ReturnUrl before clearing flow state below
+			var returnUrl = flowSession.ReturnUrl ?? "/";
 
 			var tokenResponse = await ExchangeCodeAsync(code, flowSession.PkceVerifier, BuildCallbackUri(), ct);
 
@@ -172,9 +175,7 @@ public sealed class KeycloakAuthService : IBlazorKeycloakAuthService
 
 			var principal = await ValidateAndParseAccessTokenAsync(tokenResponse.AccessToken, ct);
 
-			var refreshExpiresAt = tokenResponse.RefreshExpiresIn > 0
-				? DateTimeOffset.UtcNow.AddSeconds(tokenResponse.RefreshExpiresIn)
-				: (DateTimeOffset?)null;
+			var refreshExpiresAt = tokenResponse.RefreshExpiresIn > 0 ? DateTimeOffset.UtcNow.AddSeconds(tokenResponse.RefreshExpiresIn) : (DateTimeOffset?)null;
 
 			flowSession.AccessToken = tokenResponse.AccessToken;
 			flowSession.RefreshToken = tokenResponse.RefreshToken;
@@ -184,11 +185,10 @@ public sealed class KeycloakAuthService : IBlazorKeycloakAuthService
 			flowSession.PkceVerifier = null;
 			flowSession.OAuthState = null;
 			flowSession.Nonce = null;
+			flowSession.ReturnUrl = null;
 
 			await _sessionStore.SaveAsync(sessionId, flowSession, ct);
 
-			// Callback is always a fresh HTTP GET from Keycloak — safe to write the cookie.
-			// This also overwrites any stale kc_session cookie left from a previous session.
 			SetSessionCookie(sessionId, persistent: true);
 
 			_sessionId = sessionId;
@@ -199,17 +199,17 @@ public sealed class KeycloakAuthService : IBlazorKeycloakAuthService
 
 			_logger.LogInformation("Keycloak: user {Username} logged in via Blazor.", _user.FindFirst("preferred_username")?.Value);
 
-			return true;
+			return returnUrl;
 		}
 		catch (SecurityTokenValidationException ex)
 		{
 			_logger.LogError(ex, "Keycloak: token validation failed during callback.");
-			return false;
+			return null;
 		}
 		catch (Exception ex)
 		{
 			_logger.LogError(ex, "Keycloak: callback token exchange failed.");
-			return false;
+			return null;
 		}
 	}
 	#endregion
