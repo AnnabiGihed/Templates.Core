@@ -65,9 +65,6 @@ internal static class AuthenticationCachingExtensions
 
 		services.Configure<KeycloakOptions>(configuration.GetSection(KeycloakOptions.SectionName));
 
-		// Don't call AddAuthentication/AddJwtBearer here — that's already done by
-		// KeycloakAuthenticationExtensions.RegisterCoreJwtBearer in the outer AddKeycloakAuthentication call.
-		// Just patch in the Redis-backed events type so the caching pipeline kicks in.
 		services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, jwt =>
 		{
 			jwt.EventsType = typeof(KeycloakRedisJwtEvents);
