@@ -15,7 +15,7 @@
     <RepositoryUrl>https://github.com/AnnabiGihed/Pivot.Framework</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/AnnabiGihed/Pivot.Framework</PackageProjectUrl>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
     <PackageTags>keycloak;authentication;blazor;blazor-server;jwt;pkce;redis;secure-session</PackageTags>
     <Description>
       Keycloak OIDC authentication for Blazor Server.

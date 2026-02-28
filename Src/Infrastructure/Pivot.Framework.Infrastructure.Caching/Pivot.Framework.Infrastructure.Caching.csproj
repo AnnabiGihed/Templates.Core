@@ -16,7 +16,7 @@
     <RepositoryUrl>https://github.com/AnnabiGihed/Pivot.Framework</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/AnnabiGihed/Pivot.Framework</PackageProjectUrl>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
     <PackageTags>redis;cache;distributed-cache;aspnetcore</PackageTags>
     <Description>
       Pure Redis caching infrastructure for Pivot.Framework applications.

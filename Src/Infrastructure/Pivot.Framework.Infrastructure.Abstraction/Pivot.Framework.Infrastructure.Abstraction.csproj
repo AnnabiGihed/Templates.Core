@@ -15,7 +15,7 @@
     <RepositoryUrl>https://github.com/AnnabiGihed/Pivot.Framework</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/AnnabiGihed/Pivot.Framework</PackageProjectUrl>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
     <PackageTags>repository;outbox;scheduling;contracts;clean-architecture</PackageTags>
     <Description>
       Infrastructure contracts for Pivot.Framework Clean Architecture projects.
