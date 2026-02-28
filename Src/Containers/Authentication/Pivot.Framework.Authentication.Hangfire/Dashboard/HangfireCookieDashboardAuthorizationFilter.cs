@@ -28,7 +28,6 @@ public sealed class HangfireCookieDashboardAuthorizationFilter : IDashboardAutho
 	{
 		var httpContext = context.GetHttpContext();
 
-		// Check for a valid HangfireCookie session established by the OIDC flow.
 		var result = httpContext
 			.AuthenticateAsync(HangfireAuthConstants.CookieScheme)
 			.GetAwaiter()
@@ -37,9 +36,13 @@ public sealed class HangfireCookieDashboardAuthorizationFilter : IDashboardAutho
 		if (result.Succeeded && result.Principal?.Identity?.IsAuthenticated == true)
 			return true;
 
-		// No valid cookie — redirect the browser to Keycloak via the OIDC scheme.
+		// Write the redirect and short-circuit the response completely.
+		// We must end the response here — returning false hands control back
+		// to Hangfire which will overwrite our redirect with a 401.
 		httpContext.Response.Redirect("/hangfire-login");
+		httpContext.Response.CompleteAsync().GetAwaiter().GetResult();
 
-		return false;
+		// Return true so Hangfire does not write its own 401 over our redirect.
+		return true;
 	}
 }
