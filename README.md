@@ -1,4 +1,4 @@
-# Templates.Core
+# Pivot.Framework
 
 A collection of production-ready .NET 10 NuGet packages that provide plug-and-play infrastructure for Clean Architecture applications. Covers domain primitives, application plumbing, persistence, caching, messaging, scheduling, and Keycloak authentication for ASP.NET Core, Blazor Server, and MAUI.
 
@@ -10,19 +10,19 @@ Published to GitHub Packages: `https://nuget.pkg.github.com/AnnabiGihed/index.js
 
 | Package | Description |
 |---|---|
-| `Templates.Core.Domain` | DDD primitives — aggregates, domain events, value objects, auditing, soft delete |
-| `Templates.Core.Application` | CQRS with MediatR, FluentValidation pipeline, AutoMapper, ICurrentUser |
-| `Templates.Core.Infrastructure.Abstraction` | Outbox interfaces, repository contracts |
-| `Templates.Core.Infrastructure.Persistence.EntityFrameworkCore` | EF Core unit of work, outbox repository, audit interceptors |
-| `Templates.Core.Infrastructure.Messaging.EntityFrameworkCore` | Outbox processor — dispatches persisted domain events via MediatR |
-| `Templates.Core.Infrastructure.Scheduling` | Hangfire integration for background jobs |
-| `Templates.Core.Tools.DependencyInjection` | `IServiceInstaller` convention — auto-discover and install DI modules by assembly scan |
-| `Templates.Core.Containers.API` | ASP.NET Core API base — `ApiController`, exception middleware, Serilog setup |
-| `Templates.Core.Caching` | Redis token cache + revocation blacklist wired into JWT bearer pipeline |
-| `Templates.Core.Authentication` | Core Keycloak models, `KeycloakOptions`, `ICurrentUser`, `IKeycloakAuthService` |
-| `Templates.Core.Authentication.AspNetCore` | JWT bearer setup for ASP.NET Core APIs (`AddKeycloakBackend`) |
-| `Templates.Core.Authentication.Blazor` | PKCE login flow + Redis session store for Blazor Server (`AddKeycloakBlazor`) |
-| `Templates.Core.Authentication.Maui` | PKCE login flow via `WebAuthenticator` for .NET MAUI (`AddKeycloakMaui`) |
+| `Pivot.Framework.Domain` | DDD primitives — aggregates, domain events, value objects, auditing, soft delete |
+| `Pivot.Framework.Application` | CQRS with MediatR, FluentValidation pipeline, AutoMapper, ICurrentUser |
+| `Pivot.Framework.Infrastructure.Abstraction` | Outbox interfaces, repository contracts |
+| `Pivot.Framework.Infrastructure.Persistence.EntityFrameworkCore` | EF Core unit of work, outbox repository, audit interceptors |
+| `Pivot.Framework.Infrastructure.Messaging.EntityFrameworkCore` | Outbox processor — dispatches persisted domain events via MediatR |
+| `Pivot.Framework.Infrastructure.Scheduling` | Hangfire integration for background jobs |
+| `Pivot.Framework.Tools.DependencyInjection` | `IServiceInstaller` convention — auto-discover and install DI modules by assembly scan |
+| `Pivot.Framework.Containers.API` | ASP.NET Core API base — `ApiController`, exception middleware, Serilog setup |
+| `Pivot.Framework.Caching` | Redis token cache + revocation blacklist wired into JWT bearer pipeline |
+| `Pivot.Framework.Authentication` | Core Keycloak models, `KeycloakOptions`, `ICurrentUser`, `IKeycloakAuthService` |
+| `Pivot.Framework.Authentication.AspNetCore` | JWT bearer setup for ASP.NET Core APIs (`AddKeycloakBackend`) |
+| `Pivot.Framework.Authentication.Blazor` | PKCE login flow + Redis session store for Blazor Server (`AddKeycloakBlazor`) |
+| `Pivot.Framework.Authentication.Maui` | PKCE login flow via `WebAuthenticator` for .NET MAUI (`AddKeycloakMaui`) |
 
 ---
 
@@ -47,9 +47,9 @@ Add the GitHub Packages feed to your `NuGet.config`:
 Then install the packages you need:
 
 ```bash
-dotnet add package Templates.Core.Domain
-dotnet add package Templates.Core.Application
-dotnet add package Templates.Core.Authentication.Blazor
+dotnet add package Pivot.Framework.Domain
+dotnet add package Pivot.Framework.Application
+dotnet add package Pivot.Framework.Authentication.Blazor
 # etc.
 ```
 
@@ -57,7 +57,7 @@ dotnet add package Templates.Core.Authentication.Blazor
 
 ## Package Details
 
-### Templates.Core.Domain
+### Pivot.Framework.Domain
 
 Provides the DDD building blocks your domain layer inherits from.
 
@@ -89,7 +89,7 @@ Key types: `AggregateRoot<TId>`, `Entity<TId>`, `ValueObject<T>`, `IDomainEvent`
 
 ---
 
-### Templates.Core.Application
+### Pivot.Framework.Application
 
 Wires up the application layer with MediatR, FluentValidation, and AutoMapper.
 
@@ -114,7 +114,7 @@ Key types: `ICommand<T>`, `IQuery<T>`, `ICommandHandler<,>`, `IQueryHandler<,>`,
 
 ---
 
-### Templates.Core.Tools.DependencyInjection
+### Pivot.Framework.Tools.DependencyInjection
 
 Convention-based DI registration. Implement `IServiceInstaller` in each project and call `InstallServices` from the composition root.
 
@@ -136,7 +136,7 @@ services.InstallServices(configuration, includeConventionBasedRegistration: true
 
 ---
 
-### Templates.Core.Containers.API
+### Pivot.Framework.Containers.API
 
 Base class and middleware for ASP.NET Core API projects.
 
@@ -157,7 +157,7 @@ Includes `ExceptionHandlerMiddleware` that maps domain exceptions to RFC 7807 `P
 
 ---
 
-### Templates.Core.Authentication.AspNetCore
+### Pivot.Framework.Authentication.AspNetCore
 
 JWT bearer authentication for ASP.NET Core APIs backed by Keycloak.
 
@@ -196,7 +196,7 @@ public class MyService(ICurrentUser currentUser)
 
 ---
 
-### Templates.Core.Caching
+### Pivot.Framework.Caching
 
 Redis-backed JWT token cache and revocation blacklist. Reduces repeated token parsing and enables immediate logout before token expiry.
 
@@ -232,7 +232,7 @@ app.MapPost("/auth/logout", async (HttpContext ctx, ITokenRevocationCache revoca
 
 ---
 
-### Templates.Core.Authentication.Blazor
+### Pivot.Framework.Authentication.Blazor
 
 Full PKCE login flow for Blazor Server. Tokens are stored server-side in Redis — the browser only receives an opaque `HttpOnly` session cookie. Compatible with `<AuthorizeView>` and `[Authorize]` out of the box.
 
@@ -346,7 +346,7 @@ builder.Services.AddHttpClient("MyApi", c => c.BaseAddress = new Uri("https://ap
 
 ---
 
-### Templates.Core.Authentication.Maui
+### Pivot.Framework.Authentication.Maui
 
 PKCE login flow for .NET MAUI Blazor Hybrid via the system browser (`WebAuthenticator`). Tokens are stored in OS secure storage.
 
@@ -370,7 +370,7 @@ builder.Services.AddHttpClient("MyApi", c => c.BaseAddress = new Uri("https://ap
 
 ---
 
-### Templates.Core.Infrastructure.Persistence.EntityFrameworkCore
+### Pivot.Framework.Infrastructure.Persistence.EntityFrameworkCore
 
 EF Core unit of work with automatic audit stamping and domain event → outbox persistence.
 
@@ -399,7 +399,7 @@ public class CreateOrderCommandHandler(IUnitOfWork<AppDbContext> unitOfWork)
 
 ---
 
-### Templates.Core.Infrastructure.Scheduling
+### Pivot.Framework.Infrastructure.Scheduling
 
 Hangfire integration for background jobs.
 

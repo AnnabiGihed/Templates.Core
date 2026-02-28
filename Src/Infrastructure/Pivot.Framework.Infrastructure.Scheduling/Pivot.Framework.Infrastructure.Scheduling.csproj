@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+
+    <PackageId>Pivot.Framework.Infrastructure.Scheduling</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Gihed Annabi</Authors>
+    <Company>Gihed Annabi</Company>
+    <Copyright>Copyright © 2026 Pivot Softwares</Copyright>
+    <RepositoryUrl>https://github.com/AnnabiGihed/Pivot.Framework</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/AnnabiGihed/Pivot.Framework</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>hangfire;scheduling;background-jobs;recurring-jobs;clean-architecture</PackageTags>
+    <Description>
+      Hangfire integration for Pivot.Framework Clean Architecture projects.
+      Provides AddHangfireWithDashboard(), UseHangfireDashboardWithOptions(),
+      AddRecurringJobManager(), and RecurringJobService — a generic Result-returning
+      wrapper over Hangfire's RecurringJob API (AddOrUpdate, RemoveIfExists, TriggerJob).
+    </Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire" Version="1.8.23" />
+    <PackageReference Include="Hangfire.Core" Version="1.8.23" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Pivot.Framework.Domain\Pivot.Framework.Domain.csproj" />
+    <ProjectReference Include="..\Pivot.Framework.Infrastructure.Abstraction\Pivot.Framework.Infrastructure.Abstraction.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+
+    <PackageId>Pivot.Framework.Infrastructure.Persistence.EntityFrameworkCore</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Gihed Annabi</Authors>
+    <Company>Gihed Annabi</Company>
+    <Copyright>Copyright © 2026 Pivot Softwares</Copyright>
+    <RepositoryUrl>https://github.com/AnnabiGihed/Pivot.Framework</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/AnnabiGihed/Pivot.Framework</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>entityframeworkcore;efcore;repository;outbox;unit-of-work;sqlserver;clean-architecture</PackageTags>
+    <Description>
+      EF Core persistence infrastructure for Pivot.Framework Clean Architecture projects.
+      Provides BaseUnitOfWork, BaseAsyncQueryRepository, BaseAsyncCommandRepository,
+      OutboxRepository, DomainEventPublisher, OutboxProcessor, EntitySpecificationEvaluator,
+      and TransactionMiddleware. Uses SQL Server via Microsoft.EntityFrameworkCore.SqlServer.
+    </Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="EfCore.SchemaCompare" Version="10.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.9" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Pivot.Framework.Domain\Pivot.Framework.Domain.csproj" />
+    <ProjectReference Include="..\Pivot.Framework.Infrastructure.Abstraction\Pivot.Framework.Infrastructure.Abstraction.csproj" />
+  </ItemGroup>
+
+</Project>
