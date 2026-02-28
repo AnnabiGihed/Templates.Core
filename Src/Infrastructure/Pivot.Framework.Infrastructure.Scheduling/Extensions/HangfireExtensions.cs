@@ -1,11 +1,11 @@
 ﻿using Hangfire;
-using Hangfire.SqlServer;
+using Hangfire.Dashboard;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Pivot.Framework.Infrastructure.Scheduling.Services;
+using Pivot.Framework.Infrastructure.Scheduling.Dashboard;
 using Pivot.Framework.Infrastructure.Abstraction.Scheduling.Services;
-using Hangfire.Dashboard;
-using Microsoft.AspNetCore.Builder;
 
 namespace Pivot.Framework.Infrastructure.Scheduling.Extensions;
 
@@ -18,9 +18,10 @@ public static class HangfireExtensions
 	/// <param name="configuration">The application configuration to retrieve the connection string from.</param>
 	/// <param name="connectionStringKey">The key in the configuration where the Hangfire connection string is stored.</param>
 	/// <returns>The updated service collection.</returns>
-	public static IServiceCollection AddHangfireWithDashboard(this IServiceCollection services,	IConfiguration configuration, string connectionStringKey = "HangfireConnection")
+	public static IServiceCollection AddHangfireWithDashboard(this IServiceCollection services, IConfiguration configuration, string connectionStringKey = "HangfireConnection")
 	{
 		var connectionString = configuration.GetConnectionString(connectionStringKey);
+
 		// Configure Hangfire with SQL Server storage.
 		services.AddHangfire(config =>
 		{
@@ -33,25 +34,47 @@ public static class HangfireExtensions
 		return services;
 	}
 
-	/// Configures the Hangfire dashboard with custom options.
+	/// <summary>
+	/// Configures and mounts the Hangfire dashboard.
 	/// </summary>
+	/// <remarks>
+	/// By default the dashboard is protected by <see cref="HangfireDashboardAuthorizationFilter"/>,
+	/// which requires the incoming request to carry a valid Keycloak JWT bearer token
+	/// (i.e. <c>HttpContext.User.Identity.IsAuthenticated == true</c>).
+	/// This aligns the Hangfire dashboard with every other <c>[Authorize]</c>-protected
+	/// endpoint in the application — no anonymous access is permitted.
+	///
+	/// To further restrict access to a specific Keycloak role, replace the default
+	/// filter with a role-aware instance:
+	/// <code>
+	/// app.UseHangfireDashboardWithOptions(opts =>
+	/// {
+	///     opts.Authorization = new[]
+	///     {
+	///         new HangfireDashboardAuthorizationFilter(requiredRole: "admin")
+	///     };
+	/// });
+	/// </code>
+	/// </remarks>
 	/// <param name="app">The application builder to configure the dashboard for.</param>
-	/// <param name="configureDashboard">Optional action to configure dashboard options.</param>
+	/// <param name="configureDashboard">Optional action to override dashboard options.</param>
 	public static void UseHangfireDashboardWithOptions(
 		this IApplicationBuilder app,
 		Action<DashboardOptions>? configureDashboard = null)
 	{
-		// Set default dashboard options.
+		// Default: require a valid Keycloak JWT — any authenticated user may access the dashboard.
 		var dashboardOptions = new DashboardOptions
 		{
-			Authorization = Array.Empty<IDashboardAuthorizationFilter>(),
+			Authorization = new IDashboardAuthorizationFilter[]
+			{
+				new HangfireDashboardAuthorizationFilter()
+			},
 			DarkModeEnabled = false
 		};
 
-		// Apply custom configurations if provided.
+		// Allow the caller to tighten (or, intentionally, widen) the defaults.
 		configureDashboard?.Invoke(dashboardOptions);
 
-		// Use Hangfire dashboard with the configured options.
 		app.UseHangfireDashboard(options: dashboardOptions);
 	}
 
